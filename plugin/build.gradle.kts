@@ -4,6 +4,7 @@ plugins {
     id("java-gradle-plugin")
     id("maven-publish")
     alias(libs.plugins.build.config)
+    kotlin("kapt")
 }
 
 java {
@@ -18,6 +19,11 @@ buildConfig {
 dependencies {
     implementation(gradleApi())
     implementation(libs.ksp.gradle)
+    implementation(libs.kotlin.gradle.plugin.api)
+    implementation(libs.kotlin.compiler.embeddable)
+    implementation(libs.auto.service)
+    kapt(libs.auto.service)
+
     implementation(project(":core"))
 }
 
