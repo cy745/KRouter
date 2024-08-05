@@ -3,18 +3,23 @@ package com.zhangke.krouter.plugin
 import com.google.devtools.ksp.gradle.KspExtension
 import com.zhangke.krouter.plugin.RouterPlugin.Companion.COMPILER_NOTATION
 import com.zhangke.krouter.plugin.RouterPlugin.Companion.KSP_ID
-import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.provider.Provider
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin
+import org.jetbrains.kotlin.gradle.plugin.SubpluginArtifact
+import org.jetbrains.kotlin.gradle.plugin.SubpluginOption
 
-class RouterPlugin : Plugin<Project> {
+class RouterPlugin : KotlinCompilerPluginSupportPlugin {
     companion object {
         const val KSP_ID = "com.google.devtools.ksp"
         const val COMPILER_NOTATION = "com.zhangke.krouter:compiler:${BuildConfig.pluginVersion}"
     }
 
     override fun apply(target: Project) {
-        println("[apply]: ${target.name}")
+        target.logger.error("[apply]: ${target.name}")
+        target.logger.error("[KCPPlugin] apply")
 
         target.afterEvaluate {
             val targetInjectProjectName = target.extensions.extraProperties
@@ -59,6 +64,26 @@ class RouterPlugin : Plugin<Project> {
             }
         }
     }
+
+    override fun applyToCompilation(kotlinCompilation: KotlinCompilation<*>): Provider<List<SubpluginOption>> {
+        val project = kotlinCompilation.target.project
+
+        project.logger.error("applyToCompilation")
+
+        return project.provider { emptyList() }
+    }
+
+    override fun getCompilerPluginId(): String {
+        return "com.zhangke.krouter.plugin"
+    }
+
+    override fun getPluginArtifact(): SubpluginArtifact = SubpluginArtifact(
+        groupId = "com.zhangke.krouter",
+        artifactId = "plugin",
+        version = BuildConfig.pluginVersion,
+    )
+
+    override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean = true
 }
 
 fun goThroughProjectDependency(

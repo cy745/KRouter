@@ -1,6 +1,7 @@
 package com.zhangke.krouter.plugin.kcp
 
 import com.google.auto.service.AutoService
+import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -22,6 +23,8 @@ class KCPComponentRegistrar : CompilerPluginRegistrar() {
             message = "[KCPComponentRegistrar]: register"
         )
 
-        println("[KCPComponentRegistrar]: register")
+        IrGenerationExtension.registerExtension(
+            KCPExtensions(messageCollector)
+        )
     }
 }

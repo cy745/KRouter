@@ -24,6 +24,11 @@ dependencies {
     implementation(libs.auto.service)
     kapt(libs.auto.service)
 
+    // 用于测试kcp处理器
+    testImplementation("dev.zacsweers.kctfork:core:0.5.1")
+    testImplementation(libs.kotlin.compiler.embeddable)
+    testImplementation(libs.junit)
+
     implementation(project(":core"))
 }
 
