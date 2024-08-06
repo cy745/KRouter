@@ -12,14 +12,17 @@ private const val TestScreen = """
 package com.zhangke.krouter.test
 
 import com.zhangke.krouter.annotation.Destination
+import kotlin.reflect.KClass
 
 interface Screen
 interface TabScreen
 
 @Destination("screen/test")
-class TestScreen(
+data class TestScreen(
     val name: String = "testValue",
     val title: String? = null,
+    val count: Int = 250,
+    val isEnable: KClass<*> = Screen::class,
 ): Screen
 
 @Destination("screen/main")
@@ -29,6 +32,19 @@ class MainScreen: Screen
 class SettingsScreen: TabScreen
 """
 
+private const val ValueKeeper = """
+package com.zhangke.krouter
+
+/**
+ * 单纯用来存储KCP收集到的参数默认值
+ */
+object KRouterDefaultValueKeeper {
+    val keeperMap: MutableMap<String, Any?> = mutableMapOf()
+
+    fun get(name: String): Any? = keeperMap[name]
+}
+"""
+
 @OptIn(ExperimentalCompilerApi::class)
 class KRouterKCPPluginTest {
 
@@ -36,12 +52,24 @@ class KRouterKCPPluginTest {
     fun test() {
         val kotlinSource = listOf(
             SourceFile.kotlin("Screens.kt", TestScreen),
+            SourceFile.kotlin("ValueKeeper.kt", ValueKeeper)
         )
 
         val result = compile(
             sourceFiles = kotlinSource,
             plugins = listOf(KCPComponentRegistrar())
         )
+
+        val clazz = result.classLoader
+            .loadClass("com.zhangke.krouter.KRouterDefaultValueKeeper")
+
+        val ins = clazz.getField("INSTANCE")
+            .get(null)
+
+        val method = clazz.getDeclaredMethod("get", String::class.java)
+
+        val defaultValue = method.invoke(ins, "com.zhangke.krouter.test.TestScreen\$count")
+        println("count: $defaultValue")
     }
 
     @OptIn(ExperimentalCompilerApi::class)
