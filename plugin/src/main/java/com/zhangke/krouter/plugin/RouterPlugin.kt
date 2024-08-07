@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.gradle.plugin.SubpluginOption
 class RouterPlugin : KotlinCompilerPluginSupportPlugin {
     companion object {
         const val KSP_ID = "com.google.devtools.ksp"
+        const val PLUGIN_ID = "krouter-plugin"
         const val COMPILER_NOTATION = "com.zhangke.krouter:compiler:${BuildConfig.pluginVersion}"
     }
 
@@ -48,6 +49,7 @@ class RouterPlugin : KotlinCompilerPluginSupportPlugin {
 
             targetInjectProject.let {
                 it.plugins.apply(KSP_ID)
+                it.plugins.apply(PLUGIN_ID)
                 it.dependencies.add("ksp", COMPILER_NOTATION)
 
                 it.beforeEvaluate { pro ->
@@ -68,7 +70,7 @@ class RouterPlugin : KotlinCompilerPluginSupportPlugin {
     override fun applyToCompilation(kotlinCompilation: KotlinCompilation<*>): Provider<List<SubpluginOption>> {
         val project = kotlinCompilation.target.project
 
-        project.logger.error("applyToCompilation")
+        project.logger.error("[applyToCompilation]: ${project.name}")
 
         return project.provider { emptyList() }
     }
