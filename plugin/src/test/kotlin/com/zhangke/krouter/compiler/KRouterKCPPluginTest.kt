@@ -4,6 +4,7 @@ import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
 import com.zhangke.krouter.plugin.kcp.KCPComponentRegistrar
+import com.zhangke.krouter.plugin.kcp.KCPInjectExtensions
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.junit.Test
@@ -99,19 +100,20 @@ class KRouterKCPPluginTest {
         )
 
         // 反射获取经过处理后的类
-        val clazz = result.classLoader.loadClass("com.zhangke.krouter.test.RouterMap")
+        val clazz = result.classLoader.loadClass(
+            "com.zhangke.krouter.generated.${KCPInjectExtensions.TARGET_INJECT_CLASS}"
+        )
         val ins = clazz.getField("INSTANCE").get(null)
-        val method = clazz.getDeclaredMethod("getMap")
-        val methodResult = method.invoke(ins) as Map<*, *>
+        val method = clazz.getDeclaredMethod(
+            KCPInjectExtensions.TARGET_INJECT_FUNC,
+            String::class.java
+        )
 
-        // 传参尝试调用方法，获取结果
-        methodResult.forEach { entry ->
-            val key = entry.key as? String
-            val value = entry.value as? (Map<String, Any>) -> Any?
-            val resultItem = value?.invoke(mapOf("name" to "123", "number" to 123))
+        val methodResult = method.invoke(ins, "screen/test") as? (Map<String, Any>) -> Any
+        val invokeResult = methodResult?.invoke(mapOf("title" to "123", "number" to 123))
 
-            println("result: [$key] -> $resultItem")
-        }
+        println("methodResult: $methodResult")
+        println("invokeResult: $invokeResult")
     }
 
     @OptIn(ExperimentalCompilerApi::class)

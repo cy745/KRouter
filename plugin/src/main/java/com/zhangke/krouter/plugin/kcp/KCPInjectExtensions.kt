@@ -4,27 +4,26 @@ import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.ir.backend.js.utils.valueArguments
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrBranchImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrVarargImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrWhenImpl
-import org.jetbrains.kotlin.ir.util.properties
+import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.statements
 
 class KCPInjectExtensions(
     private val logger: MessageCollector
 ) : IrGenerationExtension {
     companion object {
-        const val TARGET_INJECT_CLASS = "RouterMap"
-        const val TARGET_INJECT_PROPERTY = "map"
-        const val TARGET_INJECT_FUNC = "TOINJECT"
+        const val TARGET_INJECT_CLASS = "KRouterInjectMap"
+        const val TARGET_INJECT_FUNC = "getMap"
+        const val TARGET_REPLACE_FUNC = "TOINJECT"
     }
 
     private fun log(message: String) {
@@ -48,10 +47,10 @@ class KCPInjectExtensions(
                 return
             }
 
-        val targetInjectRouterMapProperty = targetInjectRouterMapClass.properties
-            .firstOrNull { it.name.identifier == TARGET_INJECT_PROPERTY }
+        val targetInjectRouterMapFunc = targetInjectRouterMapClass.functions
+            .firstOrNull { it.name.identifier == TARGET_INJECT_FUNC }
             ?: run {
-                log("[TARGET_INJECT_PROPERTY] $TARGET_INJECT_PROPERTY not found")
+                log("[TARGET_INJECT_FUNC] $TARGET_INJECT_FUNC not found")
                 return
             }
 
@@ -71,23 +70,16 @@ class KCPInjectExtensions(
          * )
          *  ```
          */
-        val expression = targetInjectRouterMapProperty
-            .backingField
-            ?.initializer
-            ?.expression
-
-        val targetInjectItem = expression?.let { it as? IrCallImpl } // [mapOf] mapOf(xxx, xxx)
-            ?.valueArguments
+        val targetInjectItem = targetInjectRouterMapFunc.body
+            ?.statements
             ?.asSequence()
-            ?.flatMap {
-                // mapOf 在输入多个元素时，实际调用的函数是带有vararg的那一个变形
-                when (it) {
-                    is IrVarargImpl -> it.elements
-                    else -> listOf(it)
-                }
-            }
-            ?.filterIsInstance<IrCallImpl>() // [to] xx to xxx -> xxx.to(xxx)
-            ?.flatMap { it.valueArguments }
+            ?.filterIsInstance<IrReturnImpl>()
+            ?.mapNotNull { it.value as? IrBlockImpl }
+            ?.flatMap { it.statements }
+            ?.filterIsInstance<IrWhenImpl>()
+            ?.flatMap { it.branches }
+            ?.filterIsInstance<IrBranchImpl>()
+            ?.map { it.result }
             ?.filterIsInstance<IrFunctionExpressionImpl>() // [lambda] (xxx) -> xxx
             ?.flatMap { it.function.body?.statements ?: emptyList() }
             ?.filterIsInstance<IrReturnImpl>()
@@ -118,6 +110,6 @@ class KCPInjectExtensions(
     }
 
     private fun checkToInject(item: IrExpression): Boolean {
-        return item is IrCallImpl && item.symbol.owner.name.identifier == TARGET_INJECT_FUNC
+        return item is IrCallImpl && item.symbol.owner.name.identifier == TARGET_REPLACE_FUNC
     }
 }
