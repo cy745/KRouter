@@ -8,20 +8,23 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.squareup.kotlinpoet.ClassName
+import com.google.devtools.ksp.symbol.Nullability
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
-import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.TypeVariableName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.asTypeName
+import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
+import com.zhangke.krouter.annotation.Destination
 import com.zhangke.krouter.compiler.ext.asClassDeclaration
-import kotlin.reflect.KClass
+import com.zhangke.krouter.compiler.ext.requireAnnotation
 
 /**
  * 最终生成示例
@@ -63,22 +66,18 @@ class KRouterInjectProcessor(
         }
 
         val generatedItems = resolver.getDeclarationsFromPackage(GENERATED_SHARED_PACKAGE)
-        val propertiesItems = generatedItems.map {
-            it.asClassDeclaration().getDeclaredProperties()
-        }.flatten()
+        val propertiesItems = generatedItems
+            .mapNotNull { (it as? KSClassDeclaration)?.getDeclaredProperties() }
+            .flatten()
 
         val collectedMap = propertiesItems.map { property ->
-            val propertyName = property.simpleName.asString()
-                .substringBefore("#")
-                .replace('_', '.')
-
             val propertyClazz = property.type
                 .resolve()
                 .declaration
                 .asClassDeclaration()
 
-            propertyName to propertyClazz
-        }.groupBy({ it.first }, { it.second })
+            propertyClazz
+        }.toList()
 
         writeToFile(environment.codeGenerator, collectedMap)
 
@@ -87,52 +86,128 @@ class KRouterInjectProcessor(
 
     private fun writeToFile(
         codeGenerator: CodeGenerator,
-        collectedMap: Map<String, List<KSClassDeclaration>>
+        collectedMap: List<KSClassDeclaration>
     ) {
         if (collectedMap.isEmpty()) return
 
-        val mapItems = collectedMap.map { entry ->
-            val classNames = entry.value.map { it.toClassName() }.toTypedArray()
-            val template = classNames.joinToString(",") { "%T::class" }
-            CodeBlock.builder()
-                .addStatement("%S to listOf($template)", entry.key, *classNames)
-                .build()
-        }.toTypedArray()
-
-        val template = mapItems.joinToString(",") { "%L" }
         val codeBlock = CodeBlock.builder()
-            .addStatement("return mapOf($template)", *mapItems)
-            .build()
+            .beginControlFlow("return when (baseRoute)")
 
-        val funcSpec = FunSpec.builder("get")
-            .addModifiers(KModifier.OVERRIDE)
-            .addCode(codeBlock)
-            .returns(
-                // Map<String, List<KClass<*>>>
-                Map::class.asClassName().parameterizedBy(
-                    String::class.asTypeName(),
-                    List::class.asClassName().parameterizedBy(
-                        KClass::class.asClassName().parameterizedBy(STAR)
+        collectedMap.forEach { clazz ->
+            val annotation = clazz.requireAnnotation<Destination>()
+
+            val routers = annotation.arguments
+                .firstOrNull { it.name?.asString() == "router" }
+                ?.let { (it.value as? ArrayList<*>)?.filterIsInstance<String>() }
+                ?: return@forEach
+
+            val condition = routers.joinToString(separator = ", ") { "\"$it\"" }
+
+            val parameters = clazz.primaryConstructor?.parameters
+                ?: emptyList()
+
+            val code = buildCodeBlock {
+                val parameterCode = parameters.map { parameter ->
+                    val paramAnnotation = parameter.annotations.firstOrNull()
+
+                    // 是否必须填写的参数，其次若没有默认值，则为必填
+                    val isRequired = paramAnnotation?.arguments
+                        ?.firstOrNull { it.name?.asString() == "required" }
+                        ?.value == true || !parameter.hasDefault
+
+                    // 参数的类型
+                    val parameterType = parameter.type.resolve()
+
+                    // 是否为可空类型
+                    val isNullable = parameterType.nullability !=
+                            Nullability.NOT_NULL
+
+                    // 参数的映射名称
+                    val parameterName = paramAnnotation?.arguments
+                        ?.firstOrNull { it.name?.asString() == "name" }
+                        ?.let { it.value as? String }
+                        ?.takeIf(String::isNotBlank)
+                        ?: parameter.name?.asString()
+
+                    if (isRequired) {
+                        addStatement(
+                            "require(params.containsKey(%S)) { %S }", parameterName,
+                            "Parameter $parameterName is required."
+                        )
+                    }
+
+                    addStatement(
+                        "val %L = params[%S] as? %T",
+                        parameterName,
+                        parameterName,
+                        parameterType.toClassName()
                     )
-                )
+
+                    if (!isNullable && !parameter.hasDefault) {
+                        addStatement(
+                            "require(%L != null) { %S }", parameterName,
+                            "Parameter $parameterName can not be null."
+                        )
+                    }
+
+                    "$parameterName = $parameterName".let {
+                        if (parameter.hasDefault) "$it ?: TOINJECT()"
+                        else it
+                    }
+                }
+
+                val parameterCodeResult = parameterCode.joinToString(separator = ",\n")
+                addStatement("%T(%L)", clazz.toClassName(), parameterCodeResult)
+            }
+
+            codeBlock.beginControlFlow("$condition -> { params ->")
+                .add(code)
+                .endControlFlow()
+        }
+
+        codeBlock.addStatement("else -> throw IllegalArgumentException(%S)", "Route Not Found.")
+            .endControlFlow()
+
+        val mapType = LambdaTypeName.get(
+            receiver = null,
+            returnType = Any::class.asTypeName(),
+            parameters = arrayOf(
+                Map::class.asClassName()
+                    .parameterizedBy(
+                        String::class.asTypeName(),
+                        Any::class.asTypeName()
+                    )
             )
+        )
+
+        val getMapFuncSpec = FunSpec.builder("getMap")
+            .addParameter("baseRoute", type = String::class)
+            .returns(mapType)
+            .addCode(codeBlock.build())
             .build()
 
         val className = "KRouterInjectMap"
-        val classSpec = TypeSpec.classBuilder(className)
-            .addModifiers(KModifier.PRIVATE)
-            .addSuperinterfaces(listOf(ClassName.bestGuess("com.zhangke.krouter.KRouterRegister")))
+        val classSpec = TypeSpec.objectBuilder(className)
             .addKdoc(CLASS_KDOC)
-            .addFunction(funcSpec)
+            .addFunction(getMapFuncSpec)
+            .build()
+
+        // 占位函数
+        val toInjectFunc = FunSpec.builder("TOINJECT")
+            .addModifiers(KModifier.PRIVATE)
+            .addTypeVariable(TypeVariableName("T", Any::class))
+            .returns(TypeVariableName("T"))
+            .addCode("throw IllegalArgumentException(%S)", "Not Injected.")
             .build()
 
         val fileSpec = FileSpec.builder(GENERATED_SHARED_PACKAGE, className)
+            .addFunction(toInjectFunc)
             .addType(classSpec)
             .indent("    ")
             .build()
 
         // 将涉及到的类所涉及的文件作为依赖传入，方便增量编译
-        val dependencies = collectedMap.values.flatten()
+        val dependencies = collectedMap
             .mapNotNull { it.containingFile }
             .distinct()
             .toTypedArray()
