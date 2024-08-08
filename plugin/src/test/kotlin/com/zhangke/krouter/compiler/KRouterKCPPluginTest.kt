@@ -33,15 +33,39 @@ class SettingsScreen: TabScreen
 """
 
 private const val ValueKeeper = """
-package com.zhangke.krouter
+package com.zhangke.krouter.test
 
-/**
- * 单纯用来存储KCP收集到的参数默认值
- */
-object KRouterDefaultValueKeeper {
-    val keeperMap: MutableMap<String, Any?> = mutableMapOf()
+import java.lang.IllegalArgumentException
 
-    fun get(name: String): Any? = keeperMap[name]
+private fun <T : Any> TOINJECT(): T {
+    throw IllegalArgumentException("Not Injected.")
+}
+
+data class Screen2(
+    val number: Int,
+    val title: String = "test",
+)
+
+object RouterMap {
+    val map: Map<String, (Map<String, Any>) -> Any?> = mapOf(
+        "screen" to { params ->
+            val number = params["number"] as? Int
+                ?: throw IllegalArgumentException("No number param provided.")
+            val title = params["title"] as? String
+    
+            Screen2(
+                number = number,
+                title = title ?: TOINJECT()
+            )
+        },
+        "TestScreen" to { params ->
+            val name = params["name"] as? String
+    
+            TestScreen(
+                name = name ?: TOINJECT(),
+            )
+        }
+    )
 }
 """
 
@@ -60,16 +84,20 @@ class KRouterKCPPluginTest {
             plugins = listOf(KCPComponentRegistrar())
         )
 
-        val clazz = result.classLoader
-            .loadClass("com.zhangke.krouter.KRouterDefaultValueKeeper")
+        // 反射获取经过处理后的类
+        val clazz = result.classLoader.loadClass("com.zhangke.krouter.test.RouterMap")
+        val ins = clazz.getField("INSTANCE").get(null)
+        val method = clazz.getDeclaredMethod("getMap")
+        val methodResult = method.invoke(ins) as Map<*, *>
 
-        val ins = clazz.getField("INSTANCE")
-            .get(null)
+        // 传参尝试调用方法，获取结果
+        methodResult.forEach { entry ->
+            val key = entry.key as? String
+            val value = entry.value as? (Map<String, Any>) -> Any?
+            val resultItem = value?.invoke(mapOf("name" to "123", "number" to 123))
 
-        val method = clazz.getDeclaredMethod("get", String::class.java)
-
-        val defaultValue = method.invoke(ins, "com.zhangke.krouter.test.TestScreen\$count")
-        println("count: $defaultValue")
+            println("result: [$key] -> $resultItem")
+        }
     }
 
     @OptIn(ExperimentalCompilerApi::class)

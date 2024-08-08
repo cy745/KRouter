@@ -24,7 +24,7 @@ class KCPComponentRegistrar : CompilerPluginRegistrar() {
         )
 
         IrGenerationExtension.registerExtension(
-            KCPExtensions(messageCollector)
+            KCPInjectExtensions(messageCollector)
         )
     }
 }
