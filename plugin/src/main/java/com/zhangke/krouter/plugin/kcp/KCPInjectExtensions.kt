@@ -6,12 +6,16 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.declarations.impl.IrConstructorImpl
+import org.jetbrains.kotlin.ir.declarations.lazy.IrLazyConstructor
+import org.jetbrains.kotlin.ir.declarations.lazy.IrLazyValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrBranchImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrIfThenElseImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrWhenImpl
 import org.jetbrains.kotlin.ir.util.functions
@@ -54,22 +58,6 @@ class KCPInjectExtensions(
                 return
             }
 
-        /**
-         *  ```kotlin
-         *  val map: Map<String, (Map<String, Any>) -> Any?> = mapOf(
-         *     "screen" to { parms ->
-         *         val number = parms["number"] as? Int
-         *             ?: throw IllegalArgumentException("No number param provided.")
-         *         val title = parms["title"] as? String
-         *
-         *         Screen2(
-         *             number = number,
-         *             title = title ?: TOINJECT()
-         *         )
-         *     }
-         * )
-         *  ```
-         */
         val targetInjectItem = targetInjectRouterMapFunc.body
             ?.statements
             ?.asSequence()
@@ -85,27 +73,78 @@ class KCPInjectExtensions(
             ?.filterIsInstance<IrReturnImpl>()
             ?.mapNotNull { it.value as? IrConstructorCallImpl } // 构造函数
             ?.toList()
+            ?: emptyList()
 
-        targetInjectItem?.forEach { target ->
-            target.symbol.owner.valueParameters.forEach { parameter ->
-                val argument = target.getValueArgument(parameter.index)
+        for (target in targetInjectItem) {
+            log("[target]: $target")
+            pluginContext.tryInject(target)
+        }
+    }
 
-                // 若这个参数上填的非Block，则说明无需注入
-                val block = argument?.let { it as? IrBlockImpl }
-                    ?: return@forEach
+    private fun IrPluginContext.tryInject(target: IrConstructorCallImpl) {
+        when (val constructor = target.symbol.owner) {
+            is IrConstructorImpl -> handleInject(target, constructor)
+            is IrLazyConstructor -> handleLazyInject(target, constructor)
+            else -> log("[constructor] $constructor")
+        }
+    }
 
-                block.statements
-                    .asSequence()
-                    .filterIsInstance<IrWhenImpl>()
+    private fun IrPluginContext.handleInject(
+        target: IrConstructorCallImpl,
+        constructorImpl: IrConstructorImpl,
+    ) {
+        val parameters = constructorImpl.valueParameters
+        for (parameter in parameters) {
+            val argument = target.getValueArgument(parameter.index)
+
+            // 若这个参数上填的非Block，则说明无需注入
+            val block = argument?.let { it as? IrBlockImpl }
+                ?: continue
+
+            val branches = block.statements.run {
+                filterIsInstance<IrWhenImpl>()
                     .flatMap { it.branches }
-                    .forEach {
-                        if (checkToInject(it.result) && parameter.defaultValue != null) {
-                            it.result = parameter.defaultValue?.expression!!
-
-                            log("[branch injectd]: ${parameter.name.asString()}")
-                        }
-                    }
+                    .toList() + filterIsInstance<IrIfThenElseImpl>()
+                    .flatMap { it.branches }
             }
+
+            branches.forEach {
+                if (checkToInject(it.result) && parameter.defaultValue != null) {
+                    it.result = parameter.defaultValue?.expression!!
+
+                    log("[branch injectd]: ${parameter.name.asString()}")
+                }
+            }
+        }
+    }
+
+    private fun IrPluginContext.handleLazyInject(
+        target: IrConstructorCallImpl,
+        constructorLazy: IrLazyConstructor,
+    ) {
+        val parameters = constructorLazy.valueParameters
+            .filterIsInstance<IrLazyValueParameter>()
+
+        for (parameter in parameters) {
+            val argument = target.getValueArgument(parameter.index)
+
+            // 若这个参数上填的非Block，则说明无需注入
+            val block = argument?.let { it as? IrBlockImpl }
+                ?: continue
+
+            val branches = block.statements.run {
+                filterIsInstance<IrWhenImpl>()
+                    .flatMap { it.branches }
+                    .toList() + filterIsInstance<IrIfThenElseImpl>()
+                    .flatMap { it.branches }
+            }
+
+            branches.filterIsInstance<IrBranchImpl>()
+                .forEach {
+                    if (checkToInject(it.result)) {
+
+                    }
+                }
         }
     }
 
