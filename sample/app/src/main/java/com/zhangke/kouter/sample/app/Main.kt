@@ -1,6 +1,7 @@
 package com.zhangke.kouter.sample.app
 
 import com.zhangke.krouter.KRouter
+import com.zhangke.krouter.generated.KRouterInjectMap
 import com.zhangke.krouter.sample.core.Screen
 import kotlin.system.measureTimeMillis
 
@@ -9,6 +10,12 @@ fun main() {
         KRouter.init()
     }
     println("init cost: $initCost")
+
+    val debugScreenCost = measureTimeMillis {
+        val screen = KRouterInjectMap.getMap("screen/test")(mapOf("title" to "4500"))
+        (screen as? Screen)?.content()
+    }
+    println("DebugScreen cost: $debugScreenCost")
 
     val cost = measureTimeMillis {
         KRouter.route<Screen>("screen/home") {
