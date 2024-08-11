@@ -26,7 +26,7 @@ fun buildHandleParamsFunction(): FunSpec = FunSpec.builder("handleParams")
     .returns(ClassName("", "ParamState"))
     .addStatement("if (!this.containsKey(name)) return ParamState.NotProvided(name)")
     .addStatement("val value = this[name] ?: return ParamState.ProvidedButNull(name)")
-    .beginControlFlow("if (value::class.qualifiedName != T::class.qualifiedName)")
+    .beginControlFlow("if (!T::class.isInstance(value))")
     .addStatement(
         "return ParamState.ProvidedButWrongType(name, %P)",
         "Parameter [\$name] expects a [\${T::class.qualifiedName}], but a [\${value::class.qualifiedName}] is provided."
