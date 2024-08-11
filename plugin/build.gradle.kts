@@ -1,9 +1,11 @@
+import com.vanniktech.maven.publish.GradlePlugin
+import com.vanniktech.maven.publish.JavadocJar
+
 plugins {
-    id("java")
-    kotlin("jvm")
+    id("kotlin")
     id("java-gradle-plugin")
-    id("maven-publish")
     alias(libs.plugins.build.config)
+    alias(libs.plugins.vanniktech.publish)
 }
 
 java {
@@ -35,11 +37,17 @@ gradlePlugin {
 group = libs.versions.krouter.group.get()
 version = libs.versions.krouter.version.get()
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            artifactId = "plugin"
-            from(components["java"])
-        }
-    }
+mavenPublishing {
+    coordinates(
+        groupId = group.toString(),
+        artifactId = "plugin",
+        version = version.toString()
+    )
+
+    configure(
+        GradlePlugin(
+            javadocJar = JavadocJar.Javadoc(),
+            sourcesJar = true,
+        )
+    )
 }

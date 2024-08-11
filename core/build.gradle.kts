@@ -1,7 +1,10 @@
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.KotlinJvm
+
 plugins {
-    id("java")
     kotlin("jvm")
-    id("maven-publish")
+    alias(libs.plugins.dokka)
+    alias(libs.plugins.vanniktech.publish)
 }
 
 group = libs.versions.krouter.group.get()
@@ -12,19 +15,21 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
-tasks.withType<Jar> { duplicatesStrategy = DuplicatesStrategy.INCLUDE }
-
 dependencies {
     testImplementation(libs.junit)
-
-    implementation(kotlin("reflect"))
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            artifactId = "core"
-            from(components["java"])
-        }
-    }
+mavenPublishing {
+    coordinates(
+        groupId = group.toString(),
+        artifactId = "core",
+        version = version.toString()
+    )
+
+    configure(
+        KotlinJvm(
+            javadocJar = JavadocJar.Dokka("dokkaHtml"),
+            sourcesJar = true,
+        )
+    )
 }

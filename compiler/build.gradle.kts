@@ -1,11 +1,10 @@
-plugins {
-    id("java")
-    kotlin("jvm")
-    id("maven-publish")
-}
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.KotlinJvm
 
-group = libs.versions.krouter.group.get()
-version = libs.versions.krouter.version.get()
+plugins {
+    kotlin("jvm")
+    alias(libs.plugins.vanniktech.publish)
+}
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -13,7 +12,6 @@ java {
 }
 
 dependencies {
-    implementation(kotlin("reflect"))
     implementation(project(":core"))
 
     // 用于测试ksp处理器
@@ -26,11 +24,20 @@ dependencies {
     implementation("com.squareup:kotlinpoet-ksp:1.18.1")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            artifactId = "compiler"
-            from(components["java"])
-        }
-    }
+group = libs.versions.krouter.group.get()
+version = libs.versions.krouter.version.get()
+
+mavenPublishing {
+    coordinates(
+        groupId = group.toString(),
+        artifactId = "compiler",
+        version = version.toString()
+    )
+
+    configure(
+        KotlinJvm(
+            javadocJar = JavadocJar.Javadoc(),
+            sourcesJar = true,
+        )
+    )
 }
