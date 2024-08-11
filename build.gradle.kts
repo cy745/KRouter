@@ -11,7 +11,10 @@ plugins {
 
 //buildscript {
 //    if (System.getenv()["JITPACK"] != "true") {
-//        dependencies { classpath("com.zhangke.krouter:plugin:0.2.1") }
+//        val testGroup = libs.versions.krouter.group.get()
+//        val testVersion = libs.versions.krouter.version.get()
+//
+//        dependencies { classpath("$testGroup:plugin:$testVersion") }
 //    }
 //}
 //

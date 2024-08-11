@@ -1,6 +1,7 @@
 package com.zhangke.krouter.plugin
 
 import com.google.devtools.ksp.gradle.KspExtension
+import com.zhangke.krouter.BuildConfig
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -12,7 +13,8 @@ import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 class RouterPlugin : Plugin<Project> {
     companion object {
         const val KSP_ID = "com.google.devtools.ksp"
-        const val COMPILER_NOTATION = "com.zhangke.krouter:compiler:${BuildConfig.pluginVersion}"
+        const val COMPILER_NOTATION =
+            "${BuildConfig.pluginGroup}:compiler:${BuildConfig.pluginVersion}"
     }
 
     override fun apply(target: Project) {
@@ -98,7 +100,7 @@ fun goThroughProjectDependency(
                 .getByType(KspExtension::class.java)
                 .arg("kRouterType", "collect")
         }
-        root.afterEvaluate { setUpKSP(project = root) }
+        runCatching { root.afterEvaluate { setUpKSP(project = root) } }
     }
 
     val dependencyProjects = root.configurations

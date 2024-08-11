@@ -6,8 +6,8 @@ kotlin_version = "1.9.22"
 ksp_version = "1.9.22-1.0.17"
 junit_version = "4.13.2"
 
-krouter_group = "com.zhangke.krouter"
-krouter_version = "0.2.1"
+krouter_group = "com.github.cy745.KRouter"
+krouter_version = "0.0.1"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin_version" }

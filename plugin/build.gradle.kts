@@ -14,6 +14,9 @@ java {
 }
 
 buildConfig {
+    packageName("com.zhangke.krouter")
+
+    buildConfigField("pluginGroup", libs.versions.krouter.group.get())
     buildConfigField("pluginVersion", libs.versions.krouter.version.get())
 }
 
