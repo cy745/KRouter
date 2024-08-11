@@ -1,11 +1,13 @@
 package com.zhangke.krouter.plugin
 
 import com.google.devtools.ksp.gradle.KspExtension
-import com.zhangke.krouter.plugin.RouterPlugin.Companion.COMPILER_NOTATION
-import com.zhangke.krouter.plugin.RouterPlugin.Companion.KSP_ID
+
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
+import org.jetbrains.kotlin.gradle.dsl.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 
 class RouterPlugin : Plugin<Project> {
     companion object {
@@ -14,9 +16,7 @@ class RouterPlugin : Plugin<Project> {
     }
 
     override fun apply(target: Project) {
-        target.logger.error("[apply]: ${target.name}")
-
-        target.afterEvaluate {
+        target.afterEvaluate { _ ->
             val targetInjectProjectName = target.extensions.extraProperties
                 .runCatching { get("targetInjectProjectName") }
                 .getOrNull()
@@ -41,23 +41,49 @@ class RouterPlugin : Plugin<Project> {
                 return@afterEvaluate
             }
 
-            targetInjectProject.let {
-                it.plugins.apply(KSP_ID)
-                it.dependencies.add("ksp", COMPILER_NOTATION)
+            target.logger.info("KRouter Applied to ${targetInjectProject.name}")
 
-                it.beforeEvaluate { pro ->
-                    pro.extensions
-                        .getByType(KspExtension::class.java)
-                        .arg("kRouterType", "inject")
-                }
-                it.afterEvaluate { project ->
-                    goThroughProjectDependency(
-                        root = project,
-                        doInject = { project != it }
-                    )
-                }
+            // 为目标项目添加KSP插件
+            targetInjectProject.plugins.apply(KSP_ID)
+
+            // 为目标项目的ksp配置处理器类型
+            targetInjectProject.beforeEvaluate { pro ->
+                pro.extensions
+                    .getByType(KspExtension::class.java)
+                    .arg("kRouterType", "inject")
+            }
+
+            // 为目标项目的依赖配置ksp
+            targetInjectProject.afterEvaluate { project ->
+                setUpKSP(project)
+
+                goThroughProjectDependency(
+                    root = project,
+                    doInject = { project != it }
+                )
             }
         }
+    }
+}
+
+fun setUpKSP(project: Project) {
+    val isKmpProject = runCatching {
+        project.extensions.getByType(KotlinMultiplatformExtension::class.java)
+    }.getOrNull() != null
+
+    if (isKmpProject) {
+        // KMP 当前直接使用kspCommonMainMetadata引入processor会失效，详见https://github.com/google/ksp/issues/567
+        project.dependencies.add("kspCommonMainMetadata", RouterPlugin.COMPILER_NOTATION)
+        project.tasks.withType(KotlinCompile::class.java).configureEach { task ->
+            if (task.name != "kspCommonMainKotlinMetadata") {
+                task.dependsOn("kspCommonMainKotlinMetadata")
+            }
+        }
+        project.kotlinExtension.sourceSets.getByName("commonMain").kotlin {
+            srcDir("build/generated/ksp/metadata/commonMain/kotlin")
+        }
+    } else {
+        project.dependencies.add("ksp", RouterPlugin.COMPILER_NOTATION)
     }
 }
 
@@ -66,13 +92,13 @@ fun goThroughProjectDependency(
     doInject: (project: Project) -> Boolean = { true }
 ) {
     if (doInject(root)) {
-        root.plugins.apply(KSP_ID)
-        root.dependencies.add("ksp", COMPILER_NOTATION)
-        root.beforeEvaluate { pro ->
-            pro.extensions
+        root.plugins.apply(RouterPlugin.KSP_ID)
+        root.beforeEvaluate {
+            it.extensions
                 .getByType(KspExtension::class.java)
                 .arg("kRouterType", "collect")
         }
+        root.afterEvaluate { setUpKSP(project = root) }
     }
 
     val dependencyProjects = root.configurations
@@ -81,9 +107,6 @@ fun goThroughProjectDependency(
         .map { it.dependencyProject }
         .takeIf { it.isNotEmpty() }
         ?: return
-
-    println("Project dependencies [${dependencyProjects.size}]")
-    dependencyProjects.forEach { println("Project dependencies: $it") }
 
     dependencyProjects.forEach {
         goThroughProjectDependency(

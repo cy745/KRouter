@@ -20,6 +20,7 @@ buildConfig {
 dependencies {
     implementation(gradleApi())
     implementation(libs.ksp.gradle)
+    implementation(libs.kotlin.gradle.plugin)
     implementation(libs.kotlin.gradle.plugin.api)
 
     implementation(project(":core"))

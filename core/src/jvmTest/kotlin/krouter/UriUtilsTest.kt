@@ -1,4 +1,4 @@
-package com.zhangke.krouter
+package krouter
 
 import com.zhangke.krouter.utils.baseUri
 import org.junit.Assert
