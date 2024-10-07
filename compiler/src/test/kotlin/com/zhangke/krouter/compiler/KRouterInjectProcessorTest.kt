@@ -32,6 +32,7 @@ class KRouterInjectProcessorTest {
         return KotlinCompilation().apply {
             sources = sourceFiles
             inheritClassPath = true
+//            workingDir = java.io.File("/Users/miku/StudioProjects/KRouter/compiler/build/tmp")
 
             configureKsp(true) {
                 processorOptions["kRouterType"] = "inject"

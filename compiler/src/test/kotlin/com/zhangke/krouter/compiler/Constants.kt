@@ -12,11 +12,10 @@ import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavBackStackEntry
 import com.zhangke.krouter.Screen
-import com.zhangke.krouter.annotation.Destination
+import com.zhangke.krouter.annotation.DefaultNavConfig
+import com.zhangke.krouter.annotation.NavConfig
 
-interface Screen
-interface TabScreen
-
+//@NavConfig(CustomNavConfig::class)
 @Destination("screen/test", "screen/test2")
 data class TestScreen(
     val title: String,

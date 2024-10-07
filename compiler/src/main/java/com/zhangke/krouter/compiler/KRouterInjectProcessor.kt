@@ -13,6 +13,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
 import com.zhangke.krouter.compiler.code.buildGetRouterMapFunc
 import com.zhangke.krouter.compiler.code.buildHandleParamsFunction
+import com.zhangke.krouter.compiler.code.buildNavigationRegisterKSP
 import com.zhangke.krouter.compiler.code.buildParamStateClass
 import com.zhangke.krouter.compiler.ext.asClassDeclaration
 
@@ -42,12 +43,17 @@ class KRouterInjectProcessor(
             .map { it.type.resolve().declaration.asClassDeclaration() }
             .toList()
 
-        writeToFile(environment.codeGenerator, collectedMap)
+        writeToFile(
+            resolver = resolver,
+            codeGenerator = environment.codeGenerator,
+            collectedMap = collectedMap
+        )
 
         return resultList
     }
 
     private fun writeToFile(
+        resolver: Resolver,
         codeGenerator: CodeGenerator,
         collectedMap: List<KSClassDeclaration>
     ) {
@@ -56,6 +62,7 @@ class KRouterInjectProcessor(
         val className = "KRouterInjectMap"
         val classSpec = TypeSpec.objectBuilder(className)
             .addKdoc(CLASS_KDOC)
+            .addFunction(buildNavigationRegisterKSP(resolver, collectedMap))
             .addFunction(buildGetRouterMapFunc(collectedMap))
             .addType(buildParamStateClass())
             .addFunction(buildHandleParamsFunction())
