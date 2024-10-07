@@ -2,9 +2,10 @@
 #kotlin_version = "2.0.0"
 #ksp_version = "2.0.0-1.0.24"
 
-kotlin_version = "1.9.22"
-ksp_version = "1.9.22-1.0.17"
+kotlin_version = "2.0.20"
+ksp_version = "2.0.20-1.0.25"
 junit_version = "4.13.2"
+navigation_version = "2.8.0-alpha10"
 
 krouter_group = "com.github.cy745.KRouter"
 krouter_version = "0.0.1"
@@ -23,5 +24,6 @@ ksp-gradle = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin_version" }
 kotlin-gradle-plugin-api = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin-api", version.ref = "kotlin_version" }
 junit = { module = "junit:junit", version.ref = "junit_version" }
+compose-navigation = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "navigation_version" }
 
 [bundles]

@@ -15,11 +15,6 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
 import com.zhangke.krouter.annotation.Destination
-import com.zhangke.krouter.compiler.ext.asClassDeclaration
-import com.zhangke.krouter.compiler.ext.findArgumentTypeByName
-import com.zhangke.krouter.compiler.ext.isSingleElement
-import com.zhangke.krouter.compiler.ext.requireAnnotation
-import com.zhangke.krouter.compiler.ext.typeQualifiedName
 import kotlin.math.absoluteValue
 import kotlin.random.Random
 

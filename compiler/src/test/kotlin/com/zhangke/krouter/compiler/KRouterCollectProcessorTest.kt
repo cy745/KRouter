@@ -1,6 +1,5 @@
 package com.zhangke.krouter.compiler
 
-
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
@@ -10,7 +9,7 @@ import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.junit.Test
 
 @OptIn(ExperimentalCompilerApi::class)
-class KRouterInjectProcessorTest {
+class KRouterCollectProcessorTest {
 
     @Test
     fun test() {
@@ -34,7 +33,7 @@ class KRouterInjectProcessorTest {
             inheritClassPath = true
 
             configureKsp(true) {
-                processorOptions["kRouterType"] = "inject"
+                processorOptions["kRouterType"] = "collect"
 
                 symbolProcessorProviders.apply {
                     clear()
@@ -44,4 +43,3 @@ class KRouterInjectProcessorTest {
         }.compile()
     }
 }
-

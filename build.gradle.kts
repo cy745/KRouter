@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.kotlin) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
@@ -25,8 +27,8 @@ plugins {
 
 allprojects {
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-        kotlinOptions {
-            jvmTarget = "1.8"
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_1_8)
         }
     }
 }

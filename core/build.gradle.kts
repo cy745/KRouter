@@ -1,6 +1,6 @@
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.KotlinMultiplatform
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -13,12 +13,12 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-    linuxX64()
-    linuxArm64()
-    js {
-        browser()
-        nodejs()
-    }
+//    linuxX64()
+//    linuxArm64()
+//    js {
+//        browser()
+//        nodejs()
+//    }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
@@ -29,6 +29,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
+                api(libs.compose.navigation)
             }
         }
 
