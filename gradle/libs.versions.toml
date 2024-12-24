@@ -2,20 +2,20 @@
 #kotlin_version = "2.0.0"
 #ksp_version = "2.0.0-1.0.24"
 
-kotlin_version = "1.9.22"
-ksp_version = "1.9.22-1.0.17"
+kotlin_version = "2.1.0"
+ksp_version = "2.1.0-1.0.29"
 junit_version = "4.13.2"
 
 krouter_group = "com.github.cy745.KRouter"
-krouter_version = "0.0.1"
+krouter_version = "0.0.2"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin_version" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin_version" }
 build-config = { id = "com.github.gmazzo.buildconfig", version = "5.4.0" }
-vanniktech-publish = { id = "com.vanniktech.maven.publish", version = "0.29.0" }
+vanniktech-publish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp_version" }
-dokka = { id = "org.jetbrains.dokka", version = "1.9.20" }
+dokka = { id = "org.jetbrains.dokka", version = "2.0.0" }
 
 [libraries]
 ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp_version" }

@@ -107,6 +107,7 @@ fun goThroughProjectDependency(
         .map { it.dependencies.filterIsInstance<ProjectDependency>() }
         .flatten()
         .map { it.dependencyProject }
+        .filter { it != root }
         .takeIf { it.isNotEmpty() }
         ?: return
 
