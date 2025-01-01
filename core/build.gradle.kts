@@ -1,6 +1,7 @@
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.KotlinMultiplatform
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
+import com.vanniktech.maven.publish.SonatypeHost
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -61,4 +62,36 @@ mavenPublishing {
             sourcesJar = true,
         )
     )
+
+    pom {
+        name = "KRouter Core"
+        description = "core module of KRouter"
+        inceptionYear = "2024"
+        url = "https://github.com/cy745/KRouter/"
+
+        licenses {
+            license {
+                name = "The Apache License, Version 2.0"
+                url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+
+        developers {
+            developer {
+                id = "cy745"
+                name = "cy745"
+                url = "https://github.com/cy745/"
+            }
+        }
+
+        scm {
+            url = "https://github.com/cy745/KRouter/"
+            connection = "scm:git:git://github.com/cy745/KRouter.git"
+            developerConnection = "scm:git:ssh://git@github.com/cy745/KRouter.git"
+        }
+    }
+
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
 }

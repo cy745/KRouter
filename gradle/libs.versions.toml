@@ -6,8 +6,8 @@ kotlin_version = "2.1.0"
 ksp_version = "2.1.0-1.0.29"
 junit_version = "4.13.2"
 
-krouter_group = "com.github.cy745.KRouter"
-krouter_version = "0.0.2"
+krouter_group = "io.github.cy745.KRouter"
+krouter_version = "0.0.3"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin_version" }
