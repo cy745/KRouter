@@ -2,18 +2,18 @@
 #kotlin_version = "2.0.0"
 #ksp_version = "2.0.0-1.0.24"
 
-kotlin_version = "2.1.0"
-ksp_version = "2.1.0-1.0.29"
+kotlin_version = "2.2.0"
+ksp_version = "2.2.0-2.0.2"
 junit_version = "4.13.2"
 
 krouter_group = "io.github.cy745.KRouter"
-krouter_version = "0.0.3"
+krouter_version = "0.0.4"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin_version" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin_version" }
 build-config = { id = "com.github.gmazzo.buildconfig", version = "5.4.0" }
-vanniktech-publish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
+vanniktech-publish = { id = "com.vanniktech.maven.publish", version = "0.34.0" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp_version" }
 dokka = { id = "org.jetbrains.dokka", version = "2.0.0" }
 

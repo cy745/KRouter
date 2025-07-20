@@ -6,9 +6,9 @@ import com.zhangke.krouter.BuildConfig
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
-import org.jetbrains.kotlin.gradle.dsl.KotlinCompile
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 class RouterPlugin : Plugin<Project> {
     companion object {
@@ -76,7 +76,7 @@ fun setUpKSP(project: Project) {
     if (isKmpProject) {
         // KMP 当前直接使用kspCommonMainMetadata引入processor会失效，详见https://github.com/google/ksp/issues/567
         project.dependencies.add("kspCommonMainMetadata", RouterPlugin.COMPILER_NOTATION)
-        project.tasks.withType(KotlinCompile::class.java).configureEach { task ->
+        project.tasks.withType(KotlinCompilationTask::class.java).configureEach { task ->
             if (task.name != "kspCommonMainKotlinMetadata") {
                 task.dependsOn("kspCommonMainKotlinMetadata")
             }
