@@ -21,4 +21,4 @@
 #-renamesourcefileattribute SourceFile
 
 # todo 待检查完善混淆配置，避免重要的类被混淆
--keep com.zhangke.krouter.generated.KRouterInjectMap
+-keep com.lalilu.krouter.generated.KRouterInjectMap

@@ -14,7 +14,7 @@ java {
 }
 
 buildConfig {
-    packageName("com.zhangke.krouter")
+    packageName("com.lalilu.krouter")
 
     buildConfigField("pluginGroup", libs.versions.krouter.group.get())
     buildConfigField("pluginVersion", libs.versions.krouter.version.get())
@@ -34,7 +34,7 @@ gradlePlugin {
         create("plugin") {
             id = "${libs.versions.krouter.group.get()}.plugin"
             displayName = "plugin"
-            implementationClass = "com.zhangke.krouter.plugin.RouterPlugin"
+            implementationClass = "com.lalilu.krouter.plugin.RouterPlugin"
         }
     }
 }
