@@ -104,9 +104,9 @@ fun goThroughProjectDependency(
     }
 
     val dependencyProjects = root.configurations
-        .map { it.dependencies.filterIsInstance<ProjectDependency>() }
-        .flatten()
-        .map { it.dependencyProject }
+        .flatMap { it.allDependencies }
+        .filterIsInstance<ProjectDependency>()
+        .mapNotNull { dep -> root.rootProject.findProject(dep.path) }
         .filter { it != root }
         .takeIf { it.isNotEmpty() }
         ?: return

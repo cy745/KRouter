@@ -2,12 +2,12 @@
 #kotlin_version = "2.0.0"
 #ksp_version = "2.0.0-1.0.24"
 
-kotlin_version = "2.2.0"
-ksp_version = "2.2.0-2.0.2"
+kotlin_version = "2.3.21"
+ksp_version = "2.3.7"
 junit_version = "4.13.2"
 
 krouter_group = "io.github.cy745.KRouter"
-krouter_version = "0.0.4"
+krouter_version = "0.0.5"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin_version" }
