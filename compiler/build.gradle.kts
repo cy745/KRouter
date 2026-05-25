@@ -70,6 +70,5 @@ mavenPublishing {
         }
     }
 
-    publishToMavenCentral(true)
     signAllPublications()
 }

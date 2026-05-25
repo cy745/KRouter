@@ -85,6 +85,5 @@ mavenPublishing {
         }
     }
 
-    publishToMavenCentral(true)
     signAllPublications()
 }
