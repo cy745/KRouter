@@ -91,5 +91,5 @@ mavenPublishing {
         }
     }
 
-    signAllPublications()
+    if (!project.hasProperty("skipSigning")) signAllPublications()
 }

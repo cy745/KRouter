@@ -94,7 +94,7 @@ fun CodeBlock.Builder.buildRouterConstructorInject(clazz: KSClassDeclaration) {
     parameters.forEach { parameter ->
         val parameterName = parameter.routeParamName // 参数的映射名称
         val parameterType = parameter.type.resolve() // 参数的类型
-        val targetInjectType = parameterType.requireParameterizedClassName()
+        val targetInjectType = parameterType.requireNonNullTypeName()
         val targetInjectName = parameter.name?.asString() ?: ""
 
         addStatement(
@@ -215,7 +215,7 @@ fun CodeBlock.Builder.buildRouterPropertiesInject(clazz: KSClassDeclaration) {
         val parameterName = property.routeParamName // 参数的映射名称
         val parameterType = property.type.resolve() // 参数的类型
         val targetInjectName = property.simpleName.asString()
-        val targetInjectType = parameterType.requireParameterizedClassName()
+        val targetInjectType = parameterType.requireNonNullTypeName()
 
         addStatement(
             "val %L = params.handleParams<%T>(%S)",
@@ -291,14 +291,6 @@ val KSPropertyDeclaration.routeParamName: String?
             ?: simpleName.asString()
     }
 
-fun KSType.requireParameterizedClassName() = toClassName().let { typeName ->
-    when {
-        arguments.isNotEmpty() -> {
-            typeName.parameterizedBy(
-                arguments.mapNotNull { it.type?.resolve()?.toTypeName() }
-            )
-        }
+fun KSType.requireParameterizedClassName() = toTypeName()
 
-        else -> typeName
-    }
-}
+fun KSType.requireNonNullTypeName() = toTypeName().copy(nullable = false)

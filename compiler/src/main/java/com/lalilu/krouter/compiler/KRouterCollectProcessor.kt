@@ -1,23 +1,18 @@
 package com.lalilu.krouter.compiler
 
 import com.google.devtools.ksp.getClassDeclarationByName
-import com.google.devtools.ksp.processing.CodeGenerator
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.google.devtools.ksp.processing.SymbolProcessor
-import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
+import com.lalilu.krouter.annotation.Destination
+import com.lalilu.krouter.annotation.KService
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
-import com.lalilu.krouter.annotation.Destination
-import kotlin.math.absoluteValue
-import kotlin.random.Random
 
 /**
  * 最终生成示例
@@ -57,9 +52,15 @@ open class KRouterCollectProcessor(
             .map { it as KSClassDeclaration }
             .toList()
 
-        val clazzMap = writeToFile(environment.codeGenerator, destinations)
+        val services = resolver.getSymbolsWithAnnotation(KService::class.qualifiedName!!)
+            .map { it as KSClassDeclaration }
+            .toList()
+
+        // 生成metadata文件，写入收集到的类，且建立依赖关系
+        val clazzMap = writeToFile(environment.codeGenerator, destinations + services)
             ?: return emptyList()
 
+        // 返回metadata类，告诉ksp，这个类被收集了，允许下一轮获取到该类
         return resolver.getClassDeclarationByName(clazzMap)
             ?.let { listOf(it) }
             ?: emptyList()
@@ -83,7 +84,16 @@ open class KRouterCollectProcessor(
                 .build()
         }
 
-        val className = "KRouterMap_Metadata_${Random.nextInt().absoluteValue}"
+        // 获取所有类，计算hash值，类名变化或增删时触发hash发送变化
+        val hashes = collectedMap
+            .mapNotNull { it.qualifiedName?.asString() }
+            .sorted()
+            .joinToString("|")
+            .hashCode()
+            .toUInt()
+            .toString(16)
+
+        val className = "KRouterMap_Metadata_$hashes"
         val classSpec = TypeSpec.classBuilder(className)
             .apply { modifiers += KModifier.PRIVATE }
             .addKdoc(CLASS_KDOC)

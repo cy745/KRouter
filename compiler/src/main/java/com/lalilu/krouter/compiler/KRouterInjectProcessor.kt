@@ -1,21 +1,26 @@
 package com.lalilu.krouter.compiler
 
 import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.getDeclaredProperties
+import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.lalilu.krouter.annotation.Destination
+import com.lalilu.krouter.annotation.KService
+import com.lalilu.krouter.compiler.code.buildGetRouterMapFunc
+import com.lalilu.krouter.compiler.code.buildHandleParamsFunction
+import com.lalilu.krouter.compiler.code.buildParamStateClass
+import com.lalilu.krouter.compiler.code.handleServicesProperties
+import com.lalilu.krouter.compiler.ext.asClassDeclaration
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
-import com.lalilu.krouter.compiler.code.buildGetRouterMapFunc
-import com.lalilu.krouter.compiler.code.buildHandleParamsFunction
-import com.lalilu.krouter.compiler.code.buildParamStateClass
-import com.lalilu.krouter.compiler.ext.asClassDeclaration
 
 /**
  * 真正实现路由注入的处理器，继承自KRouterCollectProcessor
@@ -24,6 +29,9 @@ import com.lalilu.krouter.compiler.ext.asClassDeclaration
 class KRouterInjectProcessor(
     environment: SymbolProcessorEnvironment
 ) : KRouterCollectProcessor(environment) {
+    companion object {
+        val className = "KRouterInjectMap"
+    }
 
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
@@ -45,16 +53,24 @@ class KRouterInjectProcessor(
 
         writeToFile(environment.codeGenerator, collectedMap)
 
-        return resultList
+        return resolver.getClassDeclarationByName(className)
+            ?.let { listOf(it) }
+            ?: emptyList()
     }
 
+    @OptIn(KspExperimental::class)
     private fun writeToFile(
         codeGenerator: CodeGenerator,
         collectedMap: List<KSClassDeclaration>
     ) {
         if (collectedMap.isEmpty()) return
 
-        val className = "KRouterInjectMap"
+        val destinations = collectedMap
+            .filter { it.isAnnotationPresent(Destination::class) }
+
+        val services = collectedMap
+            .filter { it.isAnnotationPresent(KService::class) }
+
         val classSpec = TypeSpec.objectBuilder(className)
             .addKdoc(CLASS_KDOC)
             .addAnnotation(
@@ -62,7 +78,8 @@ class KRouterInjectProcessor(
                     .addMember("%S", "UNCHECKED_CAST")
                     .build()
             )
-            .addFunction(buildGetRouterMapFunc(collectedMap))
+            .addProperty(handleServicesProperties(services))
+            .addFunction(buildGetRouterMapFunc(destinations))
             .addType(buildParamStateClass())
             .addFunction(buildHandleParamsFunction())
             .build()
@@ -83,6 +100,8 @@ class KRouterInjectProcessor(
                 codeGenerator = codeGenerator,
                 dependencies = Dependencies(aggregating = true, *dependencies)
             )
+        }.onFailure { e ->
+            log("Failed to write generated inject map: ${e.message}")
         }
     }
 }
