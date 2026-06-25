@@ -27,12 +27,7 @@ allprojects {
         }
     }
 
-    apply(
-        plugin =
-            rootProject.libs.plugins.ktlint
-                .get()
-                .pluginId,
-    )
+    apply(plugin = rootProject.libs.plugins.ktlint.get().pluginId)
     configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
         version.set("1.4.0")
         verbose.set(true)
