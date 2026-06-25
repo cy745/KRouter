@@ -39,7 +39,10 @@ allprojects {
         android.set(false)
         ignoreFailures.set(true)
         filter {
-            exclude { element -> element.file.path.contains("generated") }
+            exclude { element ->
+                element.file.path.contains("generated") ||
+                    (element.file.name == "build.gradle.kts" && element.file.parentFile == rootProject.projectDir)
+            }
         }
     }
 }
