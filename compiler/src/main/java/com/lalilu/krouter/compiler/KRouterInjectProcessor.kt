@@ -172,6 +172,8 @@ class KRouterInjectProcessor(
                 .getSymbolsWithAnnotation(KInject::class.qualifiedName!!)
                 .filterIsInstance<KSFunctionDeclaration>()
                 .filter { func ->
+                    // 跳过已生成的 actual（避免上游生成的 actual 带 @KInject 导致循环）
+                    if (func.isActual) return@filter false
                     val returnType =
                         func.returnType
                             ?.resolve()

@@ -4,6 +4,8 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.lalilu.krouter.InjectMap
+import com.lalilu.krouter.annotation.KInject
+import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -31,10 +33,16 @@ fun List<KSFunctionDeclaration>.generateKInjectActualImplementations(codeGenerat
                 "KRouterInjectMap",
             )
 
+        val kInjectAnnotation =
+            AnnotationSpec
+                .builder(KInject::class)
+                .build()
+
         val actualFun =
             FunSpec
                 .builder(functionName)
                 .addModifiers(KModifier.ACTUAL)
+                .addAnnotation(kInjectAnnotation)
                 .returns(InjectMap::class.asClassName())
                 .addStatement("return %T as %T", injectMapClass, InjectMap::class.asClassName())
                 .build()
