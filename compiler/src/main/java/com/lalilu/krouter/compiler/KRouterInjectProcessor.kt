@@ -71,8 +71,11 @@ class KRouterInjectProcessor(
         val className = "KRouterInjectMap"
     }
 
-    /** 注入只执行一次，避免多轮重复生成 */
+    /** inject 阶段只执行一次（第二轮），避免多轮重复生成 */
     private var injectPhaseDone = false
+
+    /** @KInject 只在第一轮处理（第二轮 KSP 中 expect fun 不可见） */
+    private var kInjectDone = false
 
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
@@ -80,6 +83,11 @@ class KRouterInjectProcessor(
 
         // ── 第一轮：收集注解，生成 metadata（供依赖模块读取） ──
         val resultList = super.process(resolver)
+
+        // ── @KInject 只在第一轮处理（第一轮 source 可见，第二轮取不到 expect fun） ──
+        if (!kInjectDone) {
+            processKInjectFunctions(resolver)
+        }
 
         // ── 尝试读取跨模块 metadata ──
         // getDeclarationsFromPackage 在 metadata 文件被 KSP 索引后才能查到。
@@ -89,8 +97,8 @@ class KRouterInjectProcessor(
             .toList()
 
         val (destinations, services, collectedMap) = when {
-            // ── 多轮模式（Gradle KMP 真实构建） ──
-            // metadata 已被索引 → 从中读取所有模块收集的类
+            // ── metadata 已被索引（第二轮+） ──
+            // 从中读取当前模块及所有依赖模块的收集结果
             generatedClasses.isNotEmpty() -> {
                 val propertiesItems = generatedClasses
                     .flatMap { it.getDeclaredProperties() }
@@ -104,20 +112,13 @@ class KRouterInjectProcessor(
                 )
             }
 
-            // ── 单轮模式（kctfork 测试 / 第一轮回退） ──
-            // metadata 生成但尚未索引，直接从 resolver 同轮收集
+            // ── 第一轮：metadata 已生成但尚未被 KSP 索引 ──
+            // 返回 metadata 类触发第二轮，届时 getDeclarationsFromPackage 即可见
             environment.codeGenerator.generatedFile.isNotEmpty() -> {
-                val dests = resolver.getSymbolsWithAnnotation(Destination::class.qualifiedName!!)
-                    .map { it as KSClassDeclaration }
-                    .toList()
-                val svcs = resolver.getSymbolsWithAnnotation(KService::class.qualifiedName!!)
-                    .map { it as KSClassDeclaration }
-                    .toList()
-                Triple(dests, svcs, dests + svcs)
+                return resultList
             }
 
             // ── 无任何注解 ──
-            // 生成空壳注入映射 TODO 支持完成
             else -> {
                 writeKRouterInjectMap(
                     environment.codeGenerator, emptyList(), emptyList(), emptyList()
@@ -130,21 +131,31 @@ class KRouterInjectProcessor(
         // ── 生成 KRouterInjectMap ──
         writeKRouterInjectMap(environment.codeGenerator, collectedMap, destinations, services)
 
-        // ── 为 @KInject expect fun 生成 actual 实现 ──
-        val kInjectFunctions = resolver.getSymbolsWithAnnotation(KInject::class.qualifiedName!!)
-            .mapNotNull { it as? KSFunctionDeclaration }
-            .filter { it.returnType?.resolve()?.declaration?.qualifiedName?.asString() == "com.lalilu.krouter.InjectMap" }
-            .toList()
-
-        if (kInjectFunctions.isNotEmpty()) {
-            kInjectFunctions.generateKInjectActualImplementations(environment.codeGenerator)
-        }
-
         injectPhaseDone = true
 
         return resolver.getClassDeclarationByName(className)
             ?.let { listOf(it) }
             ?: emptyList()
+    }
+
+    /** 收集 @KInject expect fun 并生成 actual 实现（仅在 KSP source 可见的第一轮执行） */
+    private fun processKInjectFunctions(resolver: Resolver) {
+        kInjectDone = true
+        val functions = resolver.getSymbolsWithAnnotation(KInject::class.qualifiedName!!)
+            .filterIsInstance<KSFunctionDeclaration>()
+            .filter { func ->
+                val returnType = func.returnType
+                    ?.resolve()
+                    ?.declaration
+                    ?.qualifiedName
+                    ?.asString()
+                returnType == "com.lalilu.krouter.InjectMap"
+            }
+            .toList()
+
+        if (functions.isNotEmpty()) {
+            functions.generateKInjectActualImplementations(environment.codeGenerator)
+        }
     }
 
     /** 写入 KRouterInjectMap 源码文件 */
