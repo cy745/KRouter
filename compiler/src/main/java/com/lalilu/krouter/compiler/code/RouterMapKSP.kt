@@ -11,6 +11,7 @@ import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.symbol.Nullability
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.asClassName
@@ -59,6 +60,7 @@ fun buildGetRouterMapFunc(
         .build()
 
     return FunSpec.builder("getMap")
+        .addModifiers(KModifier.OVERRIDE)
         .addParameter("baseRoute", type = String::class)
         .returns(mapType)
         .addCode(codeBlock)
@@ -76,6 +78,8 @@ fun CodeBlock.Builder.buildRouterCondition(
             .firstOrNull { it.name?.asString() == "router" }
             ?.let { (it.value as? ArrayList<*>)?.filterIsInstance<String>() }
             ?: return@forEach
+
+        if (routers.isEmpty()) return@forEach
 
         val baseRouterCondition = routers
             .joinToString(separator = ", ") { "\"$it\"" }

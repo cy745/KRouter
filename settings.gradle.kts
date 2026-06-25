@@ -17,3 +17,4 @@ rootProject.name = "KRoute"
 include(":compiler")
 include(":core")
 include(":plugin")
+include(":test-app")

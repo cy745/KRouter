@@ -1,0 +1,50 @@
+package com.lalilu.krouter.compiler.code
+
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.lalilu.krouter.InjectMap
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.asClassName
+import com.squareup.kotlinpoet.ksp.writeTo
+
+/**
+ * 为标记了 @KInject 的 expect fun 生成 actual 实现。
+ *
+ * 生成的代码：
+ * ```kotlin
+ * // 在 expect 函数同包名下
+ * actual fun <函数名>(): InjectMap =
+ *     com.lalilu.krouter.generated.KRouterInjectMap as InjectMap
+ * ```
+ */
+fun List<KSFunctionDeclaration>.generateKInjectActualImplementations(
+    codeGenerator: CodeGenerator
+) {
+    forEach { func ->
+        val packageName = func.packageName.asString()
+        val functionName = func.simpleName.asString()
+        val injectMapClass = ClassName(
+            "com.lalilu.krouter.generated",
+            "KRouterInjectMap"
+        )
+
+        val actualFun = FunSpec.builder(functionName)
+            .addModifiers(KModifier.ACTUAL)
+            .returns(InjectMap::class.asClassName())
+            .addStatement("return %T as %T", injectMapClass, InjectMap::class.asClassName())
+            .build()
+
+        val fileSpec = FileSpec.builder(packageName, "KRouterActual_$functionName")
+            .addFunction(actualFun)
+            .build()
+
+        fileSpec.writeTo(
+            codeGenerator = codeGenerator,
+            dependencies = Dependencies(aggregating = false)
+        )
+    }
+}

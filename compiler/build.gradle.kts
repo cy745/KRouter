@@ -15,7 +15,7 @@ dependencies {
     implementation(project(":core"))
 
     // 用于测试ksp处理器
-    testImplementation("dev.zacsweers.kctfork:ksp:0.5.1")
+    testImplementation("dev.zacsweers.kctfork:ksp:0.12.1")
     testImplementation("org.jetbrains.kotlin:kotlin-compiler-embeddable")
     testImplementation(libs.junit)
 
@@ -71,4 +71,18 @@ mavenPublishing {
     }
 
     if (!project.hasProperty("skipSigning")) signAllPublications()
+}
+
+tasks.withType<Test>().configureEach {
+    jvmArgs(
+        "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+        "--add-opens", "java.base/java.lang.invoke=ALL-UNNAMED",
+        "--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
+        "--add-opens", "java.base/java.io=ALL-UNNAMED",
+        "--add-opens", "java.base/java.net=ALL-UNNAMED",
+        "--add-opens", "java.base/java.nio=ALL-UNNAMED",
+        "--add-opens", "java.base/java.util=ALL-UNNAMED",
+        "--add-opens", "java.base/jdk.internal.reflect=ALL-UNNAMED",
+        "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
+    )
 }

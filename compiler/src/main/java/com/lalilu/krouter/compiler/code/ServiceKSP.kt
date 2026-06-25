@@ -6,6 +6,7 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.asTypeName
+import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.ksp.toClassName
 
@@ -37,6 +38,7 @@ fun handleServicesProperties(services: List<KSClassDeclaration>): PropertySpec {
     }
 
     return PropertySpec.builder("services", listType)
+        .addModifiers(KModifier.OVERRIDE)
         .delegate(delegateBlock)
         .build()
 }
