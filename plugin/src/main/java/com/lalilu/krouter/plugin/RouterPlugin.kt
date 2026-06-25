@@ -2,7 +2,6 @@ package com.lalilu.krouter.plugin
 
 import com.google.devtools.ksp.gradle.KspExtension
 import com.lalilu.krouter.BuildConfig
-
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
@@ -18,9 +17,10 @@ class RouterPlugin : Plugin<Project> {
 
     override fun apply(target: Project) {
         target.afterEvaluate { _ ->
-            val targetInjectProjectName = target.extensions.extraProperties
-                .runCatching { get("targetInjectProjectName") }
-                .getOrNull()
+            val targetInjectProjectName =
+                target.extensions.extraProperties
+                    .runCatching { get("targetInjectProjectName") }
+                    .getOrNull()
 
             // 若不存在则直接返回
             if (targetInjectProjectName == null) {
@@ -33,8 +33,9 @@ class RouterPlugin : Plugin<Project> {
             }
 
             // 获取需要注入的project
-            val targetInjectProject = target.takeIf(isInjectProject)
-                ?: target.subprojects.firstOrNull(isInjectProject)
+            val targetInjectProject =
+                target.takeIf(isInjectProject)
+                    ?: target.subprojects.firstOrNull(isInjectProject)
 
             // 若不存在则直接返回
             if (targetInjectProject == null) {
@@ -60,7 +61,7 @@ class RouterPlugin : Plugin<Project> {
 
                 goThroughProjectDependency(
                     root = project,
-                    doInject = { project != it }
+                    doInject = { project != it },
                 )
             }
         }
@@ -68,9 +69,10 @@ class RouterPlugin : Plugin<Project> {
 }
 
 fun setUpKSP(project: Project) {
-    val isKmpProject = runCatching {
-        project.extensions.getByType(KotlinMultiplatformExtension::class.java)
-    }.getOrNull() != null
+    val isKmpProject =
+        runCatching {
+            project.extensions.getByType(KotlinMultiplatformExtension::class.java)
+        }.getOrNull() != null
 
     if (isKmpProject) {
         val kmpExtension = project.extensions.getByType(KotlinMultiplatformExtension::class.java)
@@ -87,7 +89,7 @@ fun setUpKSP(project: Project) {
 
 fun goThroughProjectDependency(
     root: Project,
-    doInject: (project: Project) -> Boolean = { true }
+    doInject: (project: Project) -> Boolean = { true },
 ) {
     if (doInject(root)) {
         root.plugins.apply(RouterPlugin.KSP_ID)
@@ -99,13 +101,14 @@ fun goThroughProjectDependency(
         runCatching { root.afterEvaluate { setUpKSP(project = root) } }
     }
 
-    val dependencyProjects = root.configurations
-        .flatMap { it.allDependencies }
-        .filterIsInstance<ProjectDependency>()
-        .mapNotNull { dep -> root.rootProject.findProject(dep.path) }
-        .filter { it != root }
-        .takeIf { it.isNotEmpty() }
-        ?: return
+    val dependencyProjects =
+        root.configurations
+            .flatMap { it.allDependencies }
+            .filterIsInstance<ProjectDependency>()
+            .mapNotNull { dep -> root.rootProject.findProject(dep.path) }
+            .filter { it != root }
+            .takeIf { it.isNotEmpty() }
+            ?: return
 
     dependencyProjects.forEach {
         goThroughProjectDependency(

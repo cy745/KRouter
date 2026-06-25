@@ -5,7 +5,6 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
 
 class KRouterProcessorProvider : SymbolProcessorProvider {
-
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val processorType = environment.options["kRouterType"]
 

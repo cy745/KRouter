@@ -1,0 +1,16 @@
+#!/bin/bash
+# Pre-commit hook — 在提交前自动格式化 Kotlin 代码
+# 跳过 generated 目录下的文件
+
+echo "🔄  Running ktlintFormat..."
+
+./gradlew ktlintFormat --no-daemon 2>/dev/null
+
+# 重新 stage 被格式化的文件
+git diff --name-only --diff-filter=ACM | while read -r file; do
+    if [[ -f "$file" ]]; then
+        git add "$file"
+    fi
+done
+
+echo "✅  ktlintFormat done"

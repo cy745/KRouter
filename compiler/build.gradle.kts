@@ -24,21 +24,25 @@ dependencies {
     implementation("com.squareup:kotlinpoet-ksp:1.18.1")
 }
 
-group = libs.versions.krouter.group.get()
-version = libs.versions.krouter.version.get()
+group =
+    libs.versions.krouter.group
+        .get()
+version =
+    libs.versions.krouter.version
+        .get()
 
 mavenPublishing {
     coordinates(
         groupId = group.toString(),
         artifactId = "compiler",
-        version = version.toString()
+        version = version.toString(),
     )
 
     configure(
         KotlinJvm(
             javadocJar = JavadocJar.Javadoc(),
             sourcesJar = true,
-        )
+        ),
     )
 
     pom {
@@ -75,14 +79,23 @@ mavenPublishing {
 
 tasks.withType<Test>().configureEach {
     jvmArgs(
-        "--add-opens", "java.base/java.lang=ALL-UNNAMED",
-        "--add-opens", "java.base/java.lang.invoke=ALL-UNNAMED",
-        "--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
-        "--add-opens", "java.base/java.io=ALL-UNNAMED",
-        "--add-opens", "java.base/java.net=ALL-UNNAMED",
-        "--add-opens", "java.base/java.nio=ALL-UNNAMED",
-        "--add-opens", "java.base/java.util=ALL-UNNAMED",
-        "--add-opens", "java.base/jdk.internal.reflect=ALL-UNNAMED",
-        "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.lang=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.lang.invoke=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.lang.reflect=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.io=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.net=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.nio=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.util=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/jdk.internal.reflect=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/jdk.internal.misc=ALL-UNNAMED",
     )
 }

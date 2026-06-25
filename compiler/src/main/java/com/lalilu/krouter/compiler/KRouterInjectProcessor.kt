@@ -63,7 +63,7 @@ import com.squareup.kotlinpoet.ksp.writeTo
  *    actual 生成必须在第一轮完成。
  */
 class KRouterInjectProcessor(
-    environment: SymbolProcessorEnvironment
+    environment: SymbolProcessorEnvironment,
 ) : KRouterCollectProcessor(environment) {
     companion object {
         /** 生成的注入映射类名 */
@@ -91,57 +91,75 @@ class KRouterInjectProcessor(
         // ── 尝试读取跨模块 metadata ──
         // getDeclarationsFromPackage 在 metadata 文件被 KSP 索引后才能查到。
         // 第一轮刚生成文件时尚未索引 → 空；第二轮（Gradle KMP）→ 可读。
-        val generatedClasses = resolver.getDeclarationsFromPackage(GENERATED_SHARED_PACKAGE)
-            .filterIsInstance<KSClassDeclaration>()
-            .toList()
+        val generatedClasses =
+            resolver
+                .getDeclarationsFromPackage(GENERATED_SHARED_PACKAGE)
+                .filterIsInstance<KSClassDeclaration>()
+                .toList()
 
-        val (destinations, services, collectedMap) = when {
-            // ── metadata 已被索引（第二轮+） ──
-            // generatedClasses 包含依赖模块的 metadata（已编译，跨轮可见）
-            // 当前模块自己的 metadata 由 super.process() 刚刚生成、同轮未索引，
-            // 因此用 getSymbolsWithAnnotation 直接从 resolver 取当前模块的注解
-            generatedClasses.isNotEmpty() -> {
-                val ownDests = resolver.getSymbolsWithAnnotation(Destination::class.qualifiedName!!)
-                    .map { it as KSClassDeclaration }
-                val ownSvcs = resolver.getSymbolsWithAnnotation(KService::class.qualifiedName!!)
-                    .map { it as KSClassDeclaration }
+        val (destinations, services, collectedMap) =
+            when {
+                // ── metadata 已被索引（第二轮+） ──
+                // generatedClasses 包含依赖模块的 metadata（已编译，跨轮可见）
+                // 当前模块自己的 metadata 由 super.process() 刚刚生成、同轮未索引，
+                // 因此用 getSymbolsWithAnnotation 直接从 resolver 取当前模块的注解
+                generatedClasses.isNotEmpty() -> {
+                    val ownDests =
+                        resolver
+                            .getSymbolsWithAnnotation(Destination::class.qualifiedName!!)
+                            .map { it as KSClassDeclaration }
+                    val ownSvcs =
+                        resolver
+                            .getSymbolsWithAnnotation(KService::class.qualifiedName!!)
+                            .map { it as KSClassDeclaration }
 
-                val fromMetadata = generatedClasses
-                    .flatMap { it.getDeclaredProperties() }
-                    .map { it.type.resolve().declaration.asClassDeclaration() }
+                    val fromMetadata =
+                        generatedClasses
+                            .flatMap { it.getDeclaredProperties() }
+                            .map {
+                                it.type
+                                    .resolve()
+                                    .declaration
+                                    .asClassDeclaration()
+                            }
 
-                val collected = (ownDests + ownSvcs + fromMetadata)
-                    .distinct()
-                    .toList()
-                Triple(
-                    collected.filter { it.isAnnotationPresent(Destination::class) },
-                    collected.filter { it.isAnnotationPresent(KService::class) },
-                    collected
-                )
+                    val collected =
+                        (ownDests + ownSvcs + fromMetadata)
+                            .distinct()
+                            .toList()
+                    Triple(
+                        collected.filter { it.isAnnotationPresent(Destination::class) },
+                        collected.filter { it.isAnnotationPresent(KService::class) },
+                        collected,
+                    )
+                }
+
+                // ── 第一轮：metadata 已生成但尚未被 KSP 索引 ──
+                // 返回 metadata 类触发第二轮，届时 getDeclarationsFromPackage 即可见
+                environment.codeGenerator.generatedFile.isNotEmpty() -> {
+                    return resultList
+                }
+
+                // ── 无任何注解 ──
+                else -> {
+                    writeKRouterInjectMap(
+                        environment.codeGenerator,
+                        emptyList(),
+                        emptyList(),
+                        emptyList(),
+                    )
+                    injectPhaseDone = true
+                    return emptyList()
+                }
             }
-
-            // ── 第一轮：metadata 已生成但尚未被 KSP 索引 ──
-            // 返回 metadata 类触发第二轮，届时 getDeclarationsFromPackage 即可见
-            environment.codeGenerator.generatedFile.isNotEmpty() -> {
-                return resultList
-            }
-
-            // ── 无任何注解 ──
-            else -> {
-                writeKRouterInjectMap(
-                    environment.codeGenerator, emptyList(), emptyList(), emptyList()
-                )
-                injectPhaseDone = true
-                return emptyList()
-            }
-        }
 
         // ── 生成 KRouterInjectMap ──
         writeKRouterInjectMap(environment.codeGenerator, collectedMap, destinations, services)
 
         injectPhaseDone = true
 
-        return resolver.getClassDeclarationByName(className)
+        return resolver
+            .getClassDeclarationByName(className)
             ?.let { listOf(it) }
             ?: emptyList()
     }
@@ -149,17 +167,19 @@ class KRouterInjectProcessor(
     /** 收集 @KInject expect fun 并生成 actual 实现（仅在 KSP source 可见的第一轮执行） */
     private fun processKInjectFunctions(resolver: Resolver) {
         kInjectDone = true
-        val functions = resolver.getSymbolsWithAnnotation(KInject::class.qualifiedName!!)
-            .filterIsInstance<KSFunctionDeclaration>()
-            .filter { func ->
-                val returnType = func.returnType
-                    ?.resolve()
-                    ?.declaration
-                    ?.qualifiedName
-                    ?.asString()
-                returnType == "com.lalilu.krouter.InjectMap"
-            }
-            .toList()
+        val functions =
+            resolver
+                .getSymbolsWithAnnotation(KInject::class.qualifiedName!!)
+                .filterIsInstance<KSFunctionDeclaration>()
+                .filter { func ->
+                    val returnType =
+                        func.returnType
+                            ?.resolve()
+                            ?.declaration
+                            ?.qualifiedName
+                            ?.asString()
+                    returnType == "com.lalilu.krouter.InjectMap"
+                }.toList()
 
         if (functions.isNotEmpty()) {
             functions.generateKInjectActualImplementations(environment.codeGenerator)
@@ -172,36 +192,41 @@ class KRouterInjectProcessor(
         codeGenerator: CodeGenerator,
         collectedMap: List<KSClassDeclaration>,
         destinations: List<KSClassDeclaration>,
-        services: List<KSClassDeclaration>
+        services: List<KSClassDeclaration>,
     ) {
-        val classSpec = TypeSpec.objectBuilder(className)
-            .addSuperinterface(InjectMap::class)
-            .addKdoc(CLASS_KDOC)
-            .addAnnotation(
-                AnnotationSpec.builder(Suppress::class)
-                    .addMember("%S", "UNCHECKED_CAST")
-                    .build()
-            )
-            .addProperty(handleServicesProperties(services))
-            .addFunction(buildGetRouterMapFunc(destinations))
-            .addType(buildParamStateClass())
-            .addFunction(buildHandleParamsFunction())
-            .build()
+        val classSpec =
+            TypeSpec
+                .objectBuilder(className)
+                .addSuperinterface(InjectMap::class)
+                .addKdoc(CLASS_KDOC)
+                .addAnnotation(
+                    AnnotationSpec
+                        .builder(Suppress::class)
+                        .addMember("%S", "UNCHECKED_CAST")
+                        .build(),
+                ).addProperty(handleServicesProperties(services))
+                .addFunction(buildGetRouterMapFunc(destinations))
+                .addType(buildParamStateClass())
+                .addFunction(buildHandleParamsFunction())
+                .build()
 
-        val fileSpec = FileSpec.builder(GENERATED_SHARED_PACKAGE, className)
-            .addType(classSpec)
-            .indent("    ")
-            .build()
+        val fileSpec =
+            FileSpec
+                .builder(GENERATED_SHARED_PACKAGE, className)
+                .addType(classSpec)
+                .indent("    ")
+                .build()
 
-        val dependencies = collectedMap
-            .mapNotNull { it.containingFile }
-            .distinct()
-            .toTypedArray()
+        val dependencies =
+            collectedMap
+                .mapNotNull { it.containingFile }
+                .distinct()
+                .toTypedArray()
 
         runCatching {
             fileSpec.writeTo(
                 codeGenerator = codeGenerator,
-                dependencies = Dependencies(aggregating = true, *dependencies)
+                dependencies = Dependencies(aggregating = true, *dependencies),
             )
         }.onFailure { e ->
             log("Failed to write generated inject map: ${e.message}")

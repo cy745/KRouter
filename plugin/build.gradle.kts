@@ -16,8 +16,16 @@ java {
 buildConfig {
     packageName("com.lalilu.krouter")
 
-    buildConfigField("pluginGroup", libs.versions.krouter.group.get())
-    buildConfigField("pluginVersion", libs.versions.krouter.version.get())
+    buildConfigField(
+        "pluginGroup",
+        libs.versions.krouter.group
+            .get(),
+    )
+    buildConfigField(
+        "pluginVersion",
+        libs.versions.krouter.version
+            .get(),
+    )
 }
 
 dependencies {
@@ -39,21 +47,25 @@ gradlePlugin {
     }
 }
 
-group = libs.versions.krouter.group.get()
-version = libs.versions.krouter.version.get()
+group =
+    libs.versions.krouter.group
+        .get()
+version =
+    libs.versions.krouter.version
+        .get()
 
 mavenPublishing {
     coordinates(
         groupId = group.toString(),
         artifactId = "plugin",
-        version = version.toString()
+        version = version.toString(),
     )
 
     configure(
         GradlePlugin(
             javadocJar = JavadocJar.Javadoc(),
             sourcesJar = true,
-        )
+        ),
     )
 
     pom {

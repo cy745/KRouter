@@ -1,7 +1,11 @@
 package com.lalilu.krouter.compiler
 
 import com.google.devtools.ksp.getClassDeclarationByName
-import com.google.devtools.ksp.processing.*
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
@@ -36,10 +40,12 @@ import com.squareup.kotlinpoet.ksp.writeTo
  * @see KRouterInjectProcessor 注入处理器（主模块使用）
  */
 open class KRouterCollectProcessor(
-    protected val environment: SymbolProcessorEnvironment
+    protected val environment: SymbolProcessorEnvironment,
 ) : SymbolProcessor {
-    protected fun log(message: String, symbol: KSNode? = null) =
-        environment.logger.warn(message, symbol)
+    protected fun log(
+        message: String,
+        symbol: KSNode? = null,
+    ) = environment.logger.warn(message, symbol)
 
     companion object {
         const val GENERATED_SHARED_PACKAGE = "com.lalilu.krouter.generated"
@@ -47,71 +53,87 @@ open class KRouterCollectProcessor(
     }
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val destinations = resolver.getSymbolsWithAnnotation(Destination::class.qualifiedName!!)
-            .map { it as KSClassDeclaration }
-            .toList()
+        val destinations =
+            resolver
+                .getSymbolsWithAnnotation(Destination::class.qualifiedName!!)
+                .map { it as KSClassDeclaration }
+                .toList()
 
-        val services = resolver.getSymbolsWithAnnotation(KService::class.qualifiedName!!)
-            .map { it as KSClassDeclaration }
-            .toList()
+        val services =
+            resolver
+                .getSymbolsWithAnnotation(KService::class.qualifiedName!!)
+                .map { it as KSClassDeclaration }
+                .toList()
 
         // 生成metadata文件，写入收集到的类，且建立依赖关系
-        val clazzMap = writeToFile(environment.codeGenerator, destinations + services)
-            ?: return emptyList()
+        val clazzMap =
+            writeToFile(environment.codeGenerator, destinations + services)
+                ?: return emptyList()
 
         // 返回metadata类，告诉ksp，这个类被收集了，允许下一轮获取到该类
-        return resolver.getClassDeclarationByName(clazzMap)
+        return resolver
+            .getClassDeclarationByName(clazzMap)
             ?.let { listOf(it) }
             ?: emptyList()
     }
 
     private fun writeToFile(
         codeGenerator: CodeGenerator,
-        collectedMap: List<KSClassDeclaration>
+        collectedMap: List<KSClassDeclaration>,
     ): String? {
         if (collectedMap.isEmpty()) return null
 
-        val propertySpecs = collectedMap.mapNotNull { item ->
-            val name = item.qualifiedName?.asString()
-                ?.replace('.', '_')
-                ?.takeIf(String::isNotBlank)
-                ?: return@mapNotNull null
+        val propertySpecs =
+            collectedMap.mapNotNull { item ->
+                val name =
+                    item.qualifiedName
+                        ?.asString()
+                        ?.replace('.', '_')
+                        ?.takeIf(String::isNotBlank)
+                        ?: return@mapNotNull null
 
-            PropertySpec.builder(name, item.toClassName())
-                .addModifiers(KModifier.LATEINIT, KModifier.PRIVATE)
-                .mutable(true)
-                .build()
-        }
+                PropertySpec
+                    .builder(name, item.toClassName())
+                    .addModifiers(KModifier.LATEINIT, KModifier.PRIVATE)
+                    .mutable(true)
+                    .build()
+            }
 
         // 获取所有类，计算hash值，类名变化或增删时触发hash发送变化
-        val hashes = collectedMap
-            .mapNotNull { it.qualifiedName?.asString() }
-            .sorted()
-            .joinToString("|")
-            .hashCode()
-            .toUInt()
-            .toString(16)
+        val hashes =
+            collectedMap
+                .mapNotNull { it.qualifiedName?.asString() }
+                .sorted()
+                .joinToString("|")
+                .hashCode()
+                .toUInt()
+                .toString(16)
 
         val className = "KRouterMap_Metadata_$hashes"
-        val classSpec = TypeSpec.classBuilder(className)
-            .addKdoc(CLASS_KDOC)
-            .addProperties(propertySpecs)
-            .build()
+        val classSpec =
+            TypeSpec
+                .classBuilder(className)
+                .addKdoc(CLASS_KDOC)
+                .addProperties(propertySpecs)
+                .build()
 
-        val fileSpec = FileSpec.builder(GENERATED_SHARED_PACKAGE, className)
-            .addType(classSpec)
-            .indent("    ")
-            .build()
+        val fileSpec =
+            FileSpec
+                .builder(GENERATED_SHARED_PACKAGE, className)
+                .addType(classSpec)
+                .indent("    ")
+                .build()
 
         // 将涉及到的类所涉及的文件作为依赖传入，方便增量编译
-        val dependencies = collectedMap
-            .mapNotNull { it.containingFile }
-            .distinct()
-            .toTypedArray()
+        val dependencies =
+            collectedMap
+                .mapNotNull { it.containingFile }
+                .distinct()
+                .toTypedArray()
 
         fileSpec.writeTo(
             codeGenerator = codeGenerator,
-            dependencies = Dependencies(aggregating = true, *dependencies)
+            dependencies = Dependencies(aggregating = true, *dependencies),
         )
 
         return className

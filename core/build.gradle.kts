@@ -45,21 +45,25 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
-group = libs.versions.krouter.group.get()
-version = libs.versions.krouter.version.get()
+group =
+    libs.versions.krouter.group
+        .get()
+version =
+    libs.versions.krouter.version
+        .get()
 
 mavenPublishing {
     coordinates(
         groupId = group.toString(),
         artifactId = "core",
-        version = version.toString()
+        version = version.toString(),
     )
 
     configure(
         KotlinMultiplatform(
             javadocJar = JavadocJar.Dokka("dokkaGenerate"),
             sourcesJar = true,
-        )
+        ),
     )
 
     pom {

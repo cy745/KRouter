@@ -6,7 +6,10 @@ import com.testlib.ConfigProvider
 import com.testlib.LoggerService
 import com.testlib.ProfileScreen
 import com.testlib.SettingsScreen
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -34,7 +37,6 @@ import org.junit.Test
  * @see KRouterProcessorTest kctfork 生成逻辑单元测试
  */
 class KRouterE2ETest {
-
     // ========================================================================
     // 1. 基础功能验证
     // ========================================================================
@@ -65,12 +67,18 @@ class KRouterE2ETest {
         val injectMap = kRouterInjectMap()
 
         val services = injectMap.services
-        assertTrue("services should contain AnalyticsService",
-            services.any { it is AnalyticsService })
-        assertTrue("services should contain UserService",
-            services.any { it is UserService })
-        assertTrue("AnalyticsService should be the singleton object",
-            services.any { it === AnalyticsService })
+        assertTrue(
+            "services should contain AnalyticsService",
+            services.any { it is AnalyticsService },
+        )
+        assertTrue(
+            "services should contain UserService",
+            services.any { it is UserService },
+        )
+        assertTrue(
+            "AnalyticsService should be the singleton object",
+            services.any { it === AnalyticsService },
+        )
     }
 
     /**
@@ -163,11 +171,14 @@ class KRouterE2ETest {
         val injectMap = kRouterInjectMap()
         val handler = injectMap.getMap("/test/generic")
 
-        val result = handler(mapOf(
-            "id" to "G1",
-            "tags" to listOf("tag1", "tag2"),
-            "meta" to mapOf("key" to "value")
-        ))
+        val result =
+            handler(
+                mapOf(
+                    "id" to "G1",
+                    "tags" to listOf("tag1", "tag2"),
+                    "meta" to mapOf("key" to "value"),
+                ),
+            )
         val screen = result as GenericScreen
         assertEquals("G1", screen.id)
         assertEquals(listOf("tag1", "tag2"), screen.tags)
@@ -211,10 +222,11 @@ class KRouterE2ETest {
         val injectMap = kRouterInjectMap()
         KRouter.init { injectMap.getMap(it) }
 
-        val result = KRouter.route<DetailScreen>(
-            router = "/test/detail",
-            extraParams = mapOf("albumId" to "extra_album", "title" to "Extra Title")
-        )
+        val result =
+            KRouter.route<DetailScreen>(
+                router = "/test/detail",
+                extraParams = mapOf("albumId" to "extra_album", "title" to "Extra Title"),
+            )
         assertNotNull(result)
         assertEquals("extra_album", result?.albumId)
         assertEquals("Extra Title", result?.title)
@@ -298,9 +310,13 @@ class KRouterE2ETest {
         val injectMap = kRouterInjectMap()
 
         val services = injectMap.services
-        assertTrue("Should contain ConfigProvider from test-lib",
-            services.any { it is ConfigProvider })
-        assertTrue("Should contain LoggerService from test-lib",
-            services.any { it is LoggerService })
+        assertTrue(
+            "Should contain ConfigProvider from test-lib",
+            services.any { it is ConfigProvider },
+        )
+        assertTrue(
+            "Should contain LoggerService from test-lib",
+            services.any { it is LoggerService },
+        )
     }
 }

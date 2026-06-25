@@ -6,14 +6,14 @@ import com.google.devtools.ksp.symbol.KSType
 
 internal val KSAnnotation.typeDeclaration: KSDeclaration get() = annotationType.resolve().declaration
 
-internal fun KSAnnotation.findArgumentTypeNameByName(name: String): String? {
-    return findArgumentTypeByName(name)
+internal fun KSAnnotation.findArgumentTypeNameByName(name: String): String? =
+    findArgumentTypeByName(name)
         ?.qualifiedName
         ?.asString()
-}
 
-internal fun KSAnnotation.findArgumentTypeByName(name: String): KSDeclaration? {
-    return arguments.firstOrNull { it.name?.asString() == name }?.value
+internal fun KSAnnotation.findArgumentTypeByName(name: String): KSDeclaration? =
+    arguments
+        .firstOrNull { it.name?.asString() == name }
+        ?.value
         ?.let { it as? KSType }
         ?.declaration
-}

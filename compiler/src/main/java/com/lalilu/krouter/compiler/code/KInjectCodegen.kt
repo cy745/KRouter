@@ -21,30 +21,33 @@ import com.squareup.kotlinpoet.ksp.writeTo
  *     com.lalilu.krouter.generated.KRouterInjectMap as InjectMap
  * ```
  */
-fun List<KSFunctionDeclaration>.generateKInjectActualImplementations(
-    codeGenerator: CodeGenerator
-) {
+fun List<KSFunctionDeclaration>.generateKInjectActualImplementations(codeGenerator: CodeGenerator) {
     forEach { func ->
         val packageName = func.packageName.asString()
         val functionName = func.simpleName.asString()
-        val injectMapClass = ClassName(
-            "com.lalilu.krouter.generated",
-            "KRouterInjectMap"
-        )
+        val injectMapClass =
+            ClassName(
+                "com.lalilu.krouter.generated",
+                "KRouterInjectMap",
+            )
 
-        val actualFun = FunSpec.builder(functionName)
-            .addModifiers(KModifier.ACTUAL)
-            .returns(InjectMap::class.asClassName())
-            .addStatement("return %T as %T", injectMapClass, InjectMap::class.asClassName())
-            .build()
+        val actualFun =
+            FunSpec
+                .builder(functionName)
+                .addModifiers(KModifier.ACTUAL)
+                .returns(InjectMap::class.asClassName())
+                .addStatement("return %T as %T", injectMapClass, InjectMap::class.asClassName())
+                .build()
 
-        val fileSpec = FileSpec.builder(packageName, "KRouterActual_$functionName")
-            .addFunction(actualFun)
-            .build()
+        val fileSpec =
+            FileSpec
+                .builder(packageName, "KRouterActual_$functionName")
+                .addFunction(actualFun)
+                .build()
 
         fileSpec.writeTo(
             codeGenerator = codeGenerator,
-            dependencies = Dependencies(aggregating = false)
+            dependencies = Dependencies(aggregating = false),
         )
     }
 }

@@ -4,5 +4,5 @@ package com.lalilu.krouter.annotation
 @Retention(AnnotationRetention.BINARY)
 annotation class Destination(
     vararg val router: String,
-    val remark: String = ""
+    val remark: String = "",
 )

@@ -19,8 +19,6 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
  *     ksp(project(":my-processor"))
  * }
  * ```
- *
- * @see [KotlinMultiplatformExtension.kspDependenciesForAllTargets]
  */
 
 /** DSL 接收器：只有一个 [ksp] 方法用于添加依赖。 */
@@ -37,11 +35,12 @@ fun KotlinTarget.kspDependencies(block: KspDependencies.() -> Unit) {
     val configurationName =
         "ksp${targetName.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}"
     val dependencies: DependencyHandler = project.dependencies
-    val kspDeps = object : KspDependencies {
-        override fun ksp(dependencyNotation: Any) {
-            dependencies.add(configurationName, dependencyNotation)
+    val kspDeps =
+        object : KspDependencies {
+            override fun ksp(dependencyNotation: Any) {
+                dependencies.add(configurationName, dependencyNotation)
+            }
         }
-    }
     kspDeps.block()
 }
 

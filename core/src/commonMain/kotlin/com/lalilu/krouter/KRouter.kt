@@ -13,32 +13,36 @@ object KRouter {
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> route(
         router: String,
-        extraParams: Map<String, Any?> = emptyMap()
+        extraParams: Map<String, Any?> = emptyMap(),
     ): T? {
         val baseRoute = router.substringBefore('?')
 
-        val paramsFromRouter = router
-            .takeIf { it.contains('?') }
-            ?.substringAfterLast('?')
-            ?.split('&')
-            ?.mapNotNull {
-                val list = it.split('=')
-                    .takeIf(List<*>::isNotEmpty)
-                    ?: return@mapNotNull null
+        val paramsFromRouter =
+            router
+                .takeIf { it.contains('?') }
+                ?.substringAfterLast('?')
+                ?.split('&')
+                ?.mapNotNull {
+                    val list =
+                        it
+                            .split('=')
+                            .takeIf(List<*>::isNotEmpty)
+                            ?: return@mapNotNull null
 
-                list[0] to (list.getOrNull(1) ?: "")
-            }?.toMap()
-            ?: emptyMap()
+                    list[0] to (list.getOrNull(1) ?: "")
+                }?.toMap()
+                ?: emptyMap()
 
-        val params = paramsFromRouter + extraParams +
+        val params =
+            paramsFromRouter + extraParams +
                 mapOf(
                     PRESET_ROUTER to router,
-                    PRESET_PARAMS to paramsFromRouter + extraParams
+                    PRESET_PARAMS to paramsFromRouter + extraParams,
                 )
 
         return getRouteMapFunc
-            ?.invoke(baseRoute)   // 获取路由
-            ?.invoke(params)   // 注入参数
-                as? T
+            ?.invoke(baseRoute) // 获取路由
+            ?.invoke(params) // 注入参数
+            as? T
     }
 }

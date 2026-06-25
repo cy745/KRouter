@@ -5,9 +5,9 @@ import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
 import com.tschuchort.compiletesting.configureKsp
 import com.tschuchort.compiletesting.sourcesGeneratedBySymbolProcessor
+import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.junit.Assert.*
 import org.junit.Test
-import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import java.io.File
 
 /**
@@ -38,7 +38,6 @@ import java.io.File
  */
 @OptIn(ExperimentalCompilerApi::class)
 class KRouterProcessorTest {
-
     // ========================================================================
     // 1. 基础注解收集
     //   验证 KSP 处理器能正确发现 @Destination 注解并为其生成路由映射代码。
@@ -56,17 +55,18 @@ class KRouterProcessorTest {
      */
     @Test
     fun `basic destination without params`() {
-        val routeSource = SourceFile.kotlin(
-            "TestRoute.kt",
-            """
+        val routeSource =
+            SourceFile.kotlin(
+                "TestRoute.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination(router = ["/test/route"])
             data class TestRoute(val id: String)
-            """
-        )
+            """,
+            )
 
         val result = compile(routeSource)
 
@@ -85,29 +85,31 @@ class KRouterProcessorTest {
      */
     @Test
     fun `multiple destinations are collected`() {
-        val source1 = SourceFile.kotlin(
-            "ScreenA.kt",
-            """
+        val source1 =
+            SourceFile.kotlin(
+                "ScreenA.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination(router = ["/screen/a"])
             data class ScreenA(val id: String)
-            """
-        )
+            """,
+            )
 
-        val source2 = SourceFile.kotlin(
-            "ScreenB.kt",
-            """
+        val source2 =
+            SourceFile.kotlin(
+                "ScreenB.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination(router = ["/screen/b"])
             data class ScreenB(val id: String, val name: String)
-            """
-        )
+            """,
+            )
 
         val result = compile(source1, source2)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -129,17 +131,18 @@ class KRouterProcessorTest {
      */
     @Test
     fun `destination with required params`() {
-        val source = SourceFile.kotlin(
-            "DetailScreen.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "DetailScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination(router = ["/detail"])
             data class DetailScreen(val albumId: String, val title: String)
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -159,9 +162,10 @@ class KRouterProcessorTest {
      */
     @Test
     fun `destination with nullable optional params`() {
-        val source = SourceFile.kotlin(
-            "AlbumScreen.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "AlbumScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
@@ -172,8 +176,8 @@ class KRouterProcessorTest {
                 val coverCacheKey: String? = null,
                 val sharedMap: Map<String, String> = emptyMap()
             )
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -192,9 +196,10 @@ class KRouterProcessorTest {
      */
     @Test
     fun `destination with generic typed params`() {
-        val source = SourceFile.kotlin(
-            "GenericScreen.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "GenericScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
@@ -205,8 +210,8 @@ class KRouterProcessorTest {
                 val tags: List<String> = emptyList(),
                 val meta: Map<String, String> = emptyMap()
             )
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -230,17 +235,18 @@ class KRouterProcessorTest {
      */
     @Test
     fun `kservice object is collected`() {
-        val serviceSource = SourceFile.kotlin(
-            "TestService.kt",
-            """
+        val serviceSource =
+            SourceFile.kotlin(
+                "TestService.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.KService
 
             @KService
             object TestService
-            """
-        )
+            """,
+            )
 
         val result = compile(serviceSource)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -261,17 +267,18 @@ class KRouterProcessorTest {
      */
     @Test
     fun `kservice class is collected`() {
-        val serviceSource = SourceFile.kotlin(
-            "UserService.kt",
-            """
+        val serviceSource =
+            SourceFile.kotlin(
+                "UserService.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.KService
 
             @KService
             class UserService
-            """
-        )
+            """,
+            )
 
         val result = compile(serviceSource)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -291,29 +298,31 @@ class KRouterProcessorTest {
      */
     @Test
     fun `mixed destinations and services are collected`() {
-        val routeSource = SourceFile.kotlin(
-            "HomeScreen.kt",
-            """
+        val routeSource =
+            SourceFile.kotlin(
+                "HomeScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination(router = ["/home"])
             data class HomeScreen(val id: String)
-            """
-        )
+            """,
+            )
 
-        val serviceSource = SourceFile.kotlin(
-            "ApiService.kt",
-            """
+        val serviceSource =
+            SourceFile.kotlin(
+                "ApiService.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.KService
 
             @KService
             object ApiService
-            """
-        )
+            """,
+            )
 
         val result = compile(routeSource, serviceSource)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -339,9 +348,10 @@ class KRouterProcessorTest {
      */
     @Test
     fun `param annotation with custom name`() {
-        val source = SourceFile.kotlin(
-            "ParamScreen.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "ParamScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
@@ -352,8 +362,8 @@ class KRouterProcessorTest {
                 @Param(name = "custom_id") val id: String,
                 val name: String
             )
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -378,17 +388,18 @@ class KRouterProcessorTest {
      */
     @Test
     fun `destination with multiple routes`() {
-        val source = SourceFile.kotlin(
-            "MultiRouteScreen.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "MultiRouteScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination(router = ["/route/a", "/route/b"])
             data class MultiRouteScreen(val id: String)
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -415,19 +426,21 @@ class KRouterProcessorTest {
      */
     @Test
     fun `no annotated classes still generates inject map`() {
-        val source = SourceFile.kotlin(
-            "PlainClass.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "PlainClass.kt",
+                """
             package com.test
 
             class PlainClass
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(
             "Should succeed even with no annotations",
-            KotlinCompilation.ExitCode.OK, result.exitCode
+            KotlinCompilation.ExitCode.OK,
+            result.exitCode,
         )
 
         val content = readGeneratedInjectMap(result)
@@ -447,22 +460,24 @@ class KRouterProcessorTest {
      */
     @Test
     fun `destination with empty router compiles successfully`() {
-        val source = SourceFile.kotlin(
-            "EmptyRouteScreen.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "EmptyRouteScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination
             data class EmptyRouteScreen(val id: String)
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(
             "Empty router should compile successfully",
-            KotlinCompilation.ExitCode.OK, result.exitCode
+            KotlinCompilation.ExitCode.OK,
+            result.exitCode,
         )
     }
 
@@ -477,9 +492,10 @@ class KRouterProcessorTest {
      */
     @Test
     fun `destination with only default params`() {
-        val source = SourceFile.kotlin(
-            "DefaultScreen.kt",
-            """
+        val source =
+            SourceFile.kotlin(
+                "DefaultScreen.kt",
+                """
             package com.test
 
             import com.lalilu.krouter.annotation.Destination
@@ -489,8 +505,8 @@ class KRouterProcessorTest {
                 val label: String = "default",
                 val count: Int = 0
             )
-            """
-        )
+            """,
+            )
 
         val result = compile(source)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -514,23 +530,25 @@ class KRouterProcessorTest {
      */
     @Test
     fun `kInject generates actual function file`() {
-        val destSource = SourceFile.kotlin(
-            "SampleScreen.kt",
-            """
+        val destSource =
+            SourceFile.kotlin(
+                "SampleScreen.kt",
+                """
             package com.test.inject
 
             import com.lalilu.krouter.annotation.Destination
 
             @Destination(router = ["/test/sample"])
             data class SampleScreen(val id: String)
-            """
-        )
+            """,
+            )
 
         val result = compile(destSource)
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
 
-        val actualFile = result.sourcesGeneratedBySymbolProcessor
-            .firstOrNull { it.name.startsWith("KRouterActual_") }
+        val actualFile =
+            result.sourcesGeneratedBySymbolProcessor
+                .firstOrNull { it.name.startsWith("KRouterActual_") }
         assertNull("No KRouterActual_* file should be generated without @KInject", actualFile)
     }
 
@@ -545,22 +563,24 @@ class KRouterProcessorTest {
      * @return 编译结果，包含 exitCode、messages、classLoader、generatedFiles 等
      */
     private fun compile(vararg sources: SourceFile): JvmCompilationResult {
-        val compilation = KotlinCompilation().apply {
-            this.sources = sources.toList()
-            inheritClassPath = true
-            configureKsp {
-                symbolProcessorProviders.add(KRouterProcessorProvider())
-                processorOptions["kRouterType"] = "inject"
+        val compilation =
+            KotlinCompilation().apply {
+                this.sources = sources.toList()
+                inheritClassPath = true
+                configureKsp {
+                    symbolProcessorProviders.add(KRouterProcessorProvider())
+                    processorOptions["kRouterType"] = "inject"
+                }
+                verbose = false
             }
-            verbose = false
-        }
-        val result = try {
-            compilation.compile()
-        } catch (e: Exception) {
-            println("Exception during compilation: ${e.message}")
-            e.printStackTrace()
-            throw RuntimeException("Compilation failed: ${e.message}", e)
-        }
+        val result =
+            try {
+                compilation.compile()
+            } catch (e: Exception) {
+                println("Exception during compilation: ${e.message}")
+                e.printStackTrace()
+                throw RuntimeException("Compilation failed: ${e.message}", e)
+            }
         if (result.exitCode != KotlinCompilation.ExitCode.OK) {
             println("Compilation messages:\n${result.messages}")
         }
@@ -571,18 +591,18 @@ class KRouterProcessorTest {
         val file = findGeneratedInjectMapFile(result)
         assertTrue(
             "Generated KRouterInjectMap should exist at ${file?.path}",
-            file?.exists() == true
+            file?.exists() == true,
         )
     }
 
-    private fun findGeneratedInjectMapFile(result: JvmCompilationResult): File? {
-        return result.sourcesGeneratedBySymbolProcessor
+    private fun findGeneratedInjectMapFile(result: JvmCompilationResult): File? =
+        result.sourcesGeneratedBySymbolProcessor
             .firstOrNull { it.name == "KRouterInjectMap.kt" }
-    }
 
     private fun readGeneratedInjectMap(result: JvmCompilationResult): String {
-        val file = findGeneratedInjectMapFile(result)
-            ?: throw AssertionError("KRouterInjectMap.kt not found in generated sources")
+        val file =
+            findGeneratedInjectMapFile(result)
+                ?: throw AssertionError("KRouterInjectMap.kt not found in generated sources")
         return file.readText()
     }
 }
