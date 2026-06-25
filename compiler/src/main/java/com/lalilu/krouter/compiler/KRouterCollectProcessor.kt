@@ -95,7 +95,6 @@ open class KRouterCollectProcessor(
 
         val className = "KRouterMap_Metadata_$hashes"
         val classSpec = TypeSpec.classBuilder(className)
-            .apply { modifiers += KModifier.PRIVATE }
             .addKdoc(CLASS_KDOC)
             .addProperties(propertySpecs)
             .build()

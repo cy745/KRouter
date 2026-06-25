@@ -9,10 +9,12 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))
+            implementation(project(":test-lib"))
         }
 
         jvmMain.dependencies {
             implementation(project(":core"))
+            implementation(project(":test-lib"))
         }
 
         jvmTest.dependencies {

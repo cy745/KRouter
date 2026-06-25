@@ -98,12 +98,21 @@ class KRouterInjectProcessor(
 
         val (destinations, services, collectedMap) = when {
             // ── metadata 已被索引（第二轮+） ──
-            // 从中读取当前模块及所有依赖模块的收集结果
+            // generatedClasses 包含依赖模块的 metadata（已编译，跨轮可见）
+            // 当前模块自己的 metadata 由 super.process() 刚刚生成、同轮未索引，
+            // 因此用 getSymbolsWithAnnotation 直接从 resolver 取当前模块的注解
             generatedClasses.isNotEmpty() -> {
-                val propertiesItems = generatedClasses
+                val ownDests = resolver.getSymbolsWithAnnotation(Destination::class.qualifiedName!!)
+                    .map { it as KSClassDeclaration }
+                val ownSvcs = resolver.getSymbolsWithAnnotation(KService::class.qualifiedName!!)
+                    .map { it as KSClassDeclaration }
+
+                val fromMetadata = generatedClasses
                     .flatMap { it.getDeclaredProperties() }
-                val collected = propertiesItems
                     .map { it.type.resolve().declaration.asClassDeclaration() }
+
+                val collected = (ownDests + ownSvcs + fromMetadata)
+                    .distinct()
                     .toList()
                 Triple(
                     collected.filter { it.isAnnotationPresent(Destination::class) },
