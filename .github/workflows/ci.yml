@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - central
+      - main
+      - "**"
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Compile & run unit tests
+        run: ./gradlew :compiler:test :test-app:build --no-daemon
+
+      - name: Run ktlint check
+        run: ./gradlew ktlintCheck --no-daemon
+
+      - name: Attach test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          retention-days: 7
