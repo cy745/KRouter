@@ -10,6 +10,19 @@ import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.ksp.toClassName
 
+/**
+ * 生成 [services] 属性，类型为 `List<Any>`：
+ * ```
+ * override val services: List<Any> by lazy {
+ *     listOf(
+ *         SingletonService,   // @KService object → 直接引用单例
+ *         ClassService(),     // @KService class → new 实例
+ *     )
+ * }
+ * ```
+ *
+ * @param services 收集到的 @KService 类列表。空列表时生成为 `emptyList()`。
+ */
 fun handleServicesProperties(services: List<KSClassDeclaration>): PropertySpec {
     val listType = List::class.asClassName().parameterizedBy(Any::class.asTypeName())
 

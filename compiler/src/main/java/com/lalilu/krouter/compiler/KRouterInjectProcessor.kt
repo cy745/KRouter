@@ -29,39 +29,38 @@ import com.squareup.kotlinpoet.ksp.writeTo
 /**
  * 路由注入处理器：收集所有模块的 @Destination / @KService，生成 KRouterInjectMap。
  *
- * ## 跨模块收集流程
+ * ## 两轮处理时序
  *
  * ```
- *                        ┌─────────────────────────────┐
- *                        │  Module A (library)          │
- *                        │  kRouterType=collect         │
- *                        │  生成 KRouterMap_Metadata_A  │
- *                        └─────────────┬───────────────┘
- *                                      │ class file 在 A 的制品中
- *                        ┌─────────────▼───────────────┐
- *                        │  Module B (library)          │
- *                        │  kRouterType=collect         │
- *                        │  生成 KRouterMap_Metadata_B  │
- *                        └─────────────┬───────────────┘
- *                                      │ class file 在 B 的制品中
- *                        ┌─────────────▼───────────────┐
- *                        │  App (main module)           │
- *                        │  kRouterType=inject          │
- *                        │  通过 getDeclarationsFromPackage │
- *                        │  读取 A+B 的 metadata，汇总     │
- *                        │  生成 KRouterInjectMap        │
- *                        └─────────────────────────────┘
+ *                             第一轮                             第二轮
+ *                         ┌──────────────┐            ┌──────────────────────┐
+ *  kRouterType=collect    │ super.process │            │                      │
+ *  的各依赖模块           │ 生成 metadata │            │                      │
+ *                         └──────┬───────┘            │                      │
+ *                                │ metadata class     │                      │
+ *                                ▼ 在依赖的制品中      │                      │
+ *                         ┌──────────────────┐        │                      │
+ *  kRouterType=inject     │ super.process()   │        │ super.process()      │
+ *  的主模块               │ 生成自己的metadata │        │ 重新生成相同metadata  │
+ *                         ├──────────────────┤        ├──────────────────────┤
+ *                         │ @KInject actual   │        │ getDeclarationsFr…() │
+ *                         │ （第一轮才可见）   │        │ 读取依赖的 metadata   │
+ *                         ├──────────────────┤        ├──────────────────────┤
+ *                         │ 返回 metadata 类  │        │ getSymbolsWithAnn…() │
+ *                         │ → 触发第二轮      │        │ 取当前模块自己的注解  │
+ *                         └──────────────────┘        ├──────────────────────┤
+ *                                                     │ 合并 → 生成 InjectMap│
+ *                                                     └──────────────────────┘
  * ```
  *
- * ## 多轮处理模式
+ * ## 为什么需要两轮？
  *
- * KSP 可能调用 process() 多次（多轮）。KMP Gradle 真实场景中：
- * - **第一轮**：生成 metadata 文件，返回 metadata 类触发下一轮
- * - **第二轮及以后**：metadata 已被 KSP 索引，从
- *   `getDeclarationsFromPackage(GENERATED_SHARED_PACKAGE)` 加载所有模块的收集结果
- *
- * kctfork 单轮测试中 metadata 来不及被索引，改用 `generatedFile.isNotEmpty()`
- * 回退到 `getSymbolsWithAnnotation()` 直接收集（同轮可见）。
+ * 1. **跨模块 metadata 可见性**：KSP 的 getDeclarationsFromPackage() 只返回已编译
+ *    或已被 KSP 索引的声明。刚生成的文件在下一轮才可索引。
+ * 2. **当前模块注解**：第二轮中当前模块自己的 metadata 刚被 super.process() 生成
+ *    同轮不可见，需用 getSymbolsWithAnnotation() 补充。
+ * 3. **@KInject 的特殊性**：第二轮 KSP 中 expect fun 不可见（KMP 限制），所以
+ *    actual 生成必须在第一轮完成。
  */
 class KRouterInjectProcessor(
     environment: SymbolProcessorEnvironment

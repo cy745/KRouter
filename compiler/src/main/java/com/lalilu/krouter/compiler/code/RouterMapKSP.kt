@@ -26,6 +26,16 @@ import com.lalilu.krouter.compiler.ext.combinations
 import com.lalilu.krouter.compiler.ext.requestAnnotation
 import com.lalilu.krouter.compiler.ext.requireAnnotation
 
+/**
+ * 生成 [KRouterInjectMap.getMap] 函数。函数签名：
+ * ```
+ * override fun getMap(baseRoute: String): (Map<String, Any?>) -> Any
+ * ```
+ *
+ * 实现为一个 `when(baseRoute)` 表达式，每个 [Destination] 对应一个分支。
+ * 分支内先通过 [handleParams] 提取参数，再用 `combinations` 组合覆盖
+ * 所有可选参数的排列，最终构造目标对象。
+ */
 fun buildGetRouterMapFunc(
     collectedMap: List<KSClassDeclaration>,
 ): FunSpec {
