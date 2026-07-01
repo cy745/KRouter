@@ -140,6 +140,12 @@ class KRouterInjectProcessor(
         // ── 生成 KRouterInjectMap ──
         writeKRouterInjectMap(environment.codeGenerator, collectedMap, destinations, services)
 
+        // ── 打印收集报告 ──
+        val extraAnnotations =
+            resolveAnnotations(environment.options)
+                .filter { it !in DEFAULT_ANNOTATIONS }
+        printCollectReport(collectedMap, destinations, services, extraAnnotations)
+
         injectPhaseDone = true
 
         return resolver
@@ -170,6 +176,77 @@ class KRouterInjectProcessor(
         if (functions.isNotEmpty()) {
             functions.generateKInjectActualImplementations(environment.codeGenerator)
         }
+    }
+
+    /** 打印收集统计报告 */
+    private fun printCollectReport(
+        collectedMap: List<KSClassDeclaration>,
+        destinations: List<KSClassDeclaration>,
+        services: List<KSClassDeclaration>,
+        extraAnnotations: List<String>,
+    ) {
+        if (collectedMap.isEmpty() && extraAnnotations.isEmpty()) {
+            log(
+                "╔═══════════════════════════════════════\n║  📦 KRouter Collect Report\n║  ─────────────────────────────\n║  ⚠️  No annotated classes found\n╚═══════════════════════════════════════",
+            )
+            return
+        }
+
+        val destNames = destinations.map { it.qualifiedName?.asString() }.toSet()
+        val svcNames = services.map { it.qualifiedName?.asString() }.toSet()
+
+        log(
+            buildString {
+                appendLine("╔═══════════════════════════════════════")
+                appendLine("║  📦 KRouter Collect Report")
+                appendLine("║  ─────────────────────────────")
+                if (destinations.isNotEmpty()) {
+                    appendLine("║")
+                    appendLine("║  🧭  Destinations (${destinations.size}):")
+                    destinations.forEach { d ->
+                        appendLine("║     • ${d.qualifiedName?.asString() ?: "?"}")
+                    }
+                } else {
+                    appendLine("║")
+                    appendLine("║  🧭  Destinations:  ❌ none")
+                }
+                if (services.isNotEmpty()) {
+                    appendLine("║")
+                    appendLine("║  🔧  Services (${services.size}):")
+                    services.forEach { s ->
+                        appendLine("║     • ${s.qualifiedName?.asString() ?: "?"}")
+                    }
+                } else {
+                    appendLine("║")
+                    appendLine("║  🔧  Services:  ❌ none")
+                }
+                // ── 自定义注解收集展示 ──
+                if (extraAnnotations.isNotEmpty()) {
+                    appendLine("║")
+                    appendLine("║  🏷️  Extra Annotations (${extraAnnotations.size}):")
+                    extraAnnotations.forEach { ann ->
+                        val matched =
+                            collectedMap.filter { clazz ->
+                                clazz.annotations.any { a ->
+                                    a.annotationType
+                                        .resolve()
+                                        .declaration.qualifiedName
+                                        ?.asString() == ann
+                                }
+                            }
+                        if (matched.isNotEmpty()) {
+                            appendLine("║     [${ann.substringAfterLast('.')}]  ($ann)")
+                            matched.forEach { c ->
+                                appendLine("║        • ${c.qualifiedName?.asString() ?: "?"}")
+                            }
+                        } else {
+                            appendLine("║     [${ann.substringAfterLast('.')}]  ❌ none  ($ann)")
+                        }
+                    }
+                }
+                append("╚═══════════════════════════════════════")
+            },
+        )
     }
 
     /** 写入 KRouterInjectMap 源码文件 */
