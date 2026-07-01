@@ -1,6 +1,27 @@
 # Changelog
 
-## [0.0.7] — 2026-06-25
+## [0.0.8] — 2026-07-01
+
+### Features
+- 抽取 `ksp-collector` 独立工具库（`MetadataCollector` + `MetadataReader`），
+  零外部业务依赖，其他 KSP 库可直接引入使用跨模块注解收集能力
+- 支持 `krouter.collect.annotations` KSP 参数，通过 ext 或 ksp arg 传入
+  自定义注解 FQN 列表，扩展收集范围（如 Koin 的 `@ModuleProvide`）
+- 自定义注解收集的类自动加入 `KRouterInjectMap.services` 列表
+- 注入阶段打印收集统计报告，分栏展示 `Destinations` / `@KService` /
+  `Extra in Services`，支持 Emoji
+- 三轮 KSP 时序（Round 1 收集 → Round 2 等待 → Round 3 注入），
+  确保其他 KSP 处理器（Koin 等）生成的类在注入轮次可被收录
+- `MetadataCollector` 支持配置多注解扫描，metadata 类名包含注解列表 hash
+- `MetadataReader.readWithFallback()` 同时读取跨模块 metadata 和当前模块注解
+- 预留 `ksp-collector` 的 Maven Central 发布配置
+
+### Infrastructure
+- KRouter Gradle Plugin 支持 `ext { set("krouter.collect.annotations", "...") }`
+  透传到所有 collect / inject 模块的 KSP 参数
+- Collect 端的 commonMain sourceSet 生成目录配置已移除
+
+[0.0.8]: https://github.com/cy745/KRouter/compare/0.0.7...0.0.8
 
 ### Features
 - 新增 `@KInject` 注解，支持 `expect fun kRouterInjectMap(): InjectMap` 模式，
