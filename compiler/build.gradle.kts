@@ -13,6 +13,7 @@ java {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":ksp-collector"))
 
     // 用于测试ksp处理器
     testImplementation("dev.zacsweers.kctfork:ksp:0.12.1")
