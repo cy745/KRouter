@@ -6,13 +6,13 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 
 class RouterPlugin : Plugin<Project> {
     companion object {
         const val KSP_ID = "com.google.devtools.ksp"
         const val COMPILER_NOTATION =
             "${BuildConfig.pluginGroup}:compiler:${BuildConfig.pluginVersion}"
+        const val EXTRA_ANNOTATIONS_PROP = "krouter.collect.annotations"
     }
 
     override fun apply(target: Project) {
@@ -27,6 +27,11 @@ class RouterPlugin : Plugin<Project> {
                 println("Target inject project name not found")
                 return@afterEvaluate
             }
+
+            val collectAnnotations =
+                target.extensions.extraProperties
+                    .runCatching { get(EXTRA_ANNOTATIONS_PROP) }
+                    .getOrNull() as? String
 
             val isInjectProject: (Project) -> Boolean = {
                 it.name == targetInjectProjectName
@@ -48,11 +53,13 @@ class RouterPlugin : Plugin<Project> {
             // 为目标项目添加KSP插件
             targetInjectProject.plugins.apply(KSP_ID)
 
-            // 为目标项目的ksp配置处理器类型
+            // 为目标项目的ksp配置处理器类型和扩展注解
             targetInjectProject.beforeEvaluate { pro ->
-                pro.extensions
-                    .getByType(KspExtension::class.java)
-                    .arg("kRouterType", "inject")
+                val kspExt = pro.extensions.getByType(KspExtension::class.java)
+                kspExt.arg("kRouterType", "inject")
+                if (collectAnnotations != null) {
+                    kspExt.arg(EXTRA_ANNOTATIONS_PROP, collectAnnotations)
+                }
             }
 
             // 为目标项目的依赖配置ksp
@@ -62,6 +69,7 @@ class RouterPlugin : Plugin<Project> {
                 goThroughProjectDependency(
                     root = project,
                     doInject = { project != it },
+                    collectAnnotations = collectAnnotations,
                 )
             }
         }
@@ -79,9 +87,6 @@ fun setUpKSP(project: Project) {
         kmpExtension.kspDependenciesForAllTargets {
             ksp(RouterPlugin.COMPILER_NOTATION)
         }
-        project.kotlinExtension.sourceSets.getByName("commonMain").kotlin {
-            srcDir("build/generated/ksp/metadata/commonMain/kotlin")
-        }
     } else {
         project.dependencies.add("ksp", RouterPlugin.COMPILER_NOTATION)
     }
@@ -90,13 +95,16 @@ fun setUpKSP(project: Project) {
 fun goThroughProjectDependency(
     root: Project,
     doInject: (project: Project) -> Boolean = { true },
+    collectAnnotations: String? = null,
 ) {
     if (doInject(root)) {
         root.plugins.apply(RouterPlugin.KSP_ID)
         root.beforeEvaluate {
-            it.extensions
-                .getByType(KspExtension::class.java)
-                .arg("kRouterType", "collect")
+            val kspExt = it.extensions.getByType(KspExtension::class.java)
+            kspExt.arg("kRouterType", "collect")
+            if (collectAnnotations != null) {
+                kspExt.arg(RouterPlugin.EXTRA_ANNOTATIONS_PROP, collectAnnotations)
+            }
         }
         runCatching { root.afterEvaluate { setUpKSP(project = root) } }
     }
@@ -114,6 +122,7 @@ fun goThroughProjectDependency(
         goThroughProjectDependency(
             root = it,
             doInject = doInject,
+            collectAnnotations = collectAnnotations,
         )
     }
 }

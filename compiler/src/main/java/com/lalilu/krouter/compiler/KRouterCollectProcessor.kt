@@ -10,10 +10,44 @@ import com.lalilu.kspcollector.CollectorConfig
 import com.lalilu.kspcollector.MetadataCollector
 
 /**
- * 注解收集处理器 — 将当前模块中 @Destination 和 @KService 的类元数据
- * 写入公共包 `com.lalilu.krouter.generated`，供注入处理器跨模块读取。
+ * KSP 参数 key：额外收集的注解 FQN 列表，逗号分隔。
+ * 处理器会将这些注解与 KRouter 自带的 [DEFAULT_ANNOTATIONS] 合并收集。
  *
- * 收集逻辑委托给 [MetadataCollector]，此类仅负责 KRouter 特有的调度逻辑。
+ * 使用方式：
+ * ```kotlin
+ * ksp {
+ *     arg("krouter.collect.annotations", "com.example.MyRoute,com.example.MyService")
+ * }
+ * ```
+ */
+const val KSP_ARG_EXTRA_ANNOTATIONS = "krouter.collect.annotations"
+
+/** KRouter 默认收集的注解列表。 */
+val DEFAULT_ANNOTATIONS =
+    listOf(
+        "com.lalilu.krouter.annotation.Destination",
+        "com.lalilu.krouter.annotation.KService",
+    )
+
+/**
+ * 从 KSP options 中解析注解列表：默认 + 用户通过 [KSP_ARG_EXTRA_ANNOTATIONS] 传入的。
+ */
+fun resolveAnnotations(options: Map<String, String>): List<String> {
+    val extra =
+        options[KSP_ARG_EXTRA_ANNOTATIONS]
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+    return DEFAULT_ANNOTATIONS + extra
+}
+
+/**
+ * 注解收集处理器 — 将当前模块中标注了指定注解的类写入 metadata，
+ * 供注入处理器跨模块读取。
+ *
+ * 除了默认的 @Destination 和 @KService 外，还可通过 KSP 参数
+ * `krouter.collect.annotations` 传入额外注解。
  *
  * @see KRouterInjectProcessor 注入处理器
  */
@@ -25,14 +59,12 @@ open class KRouterCollectProcessor(
         symbol: KSNode? = null,
     ) = environment.logger.warn(message, symbol)
 
+    private val annotations = resolveAnnotations(environment.options)
+
     private val collector =
         MetadataCollector(
             CollectorConfig(
-                annotations =
-                    listOf(
-                        "com.lalilu.krouter.annotation.Destination",
-                        "com.lalilu.krouter.annotation.KService",
-                    ),
+                annotations = annotations,
                 sharedPackage = GENERATED_SHARED_PACKAGE,
                 kdoc =
                     """

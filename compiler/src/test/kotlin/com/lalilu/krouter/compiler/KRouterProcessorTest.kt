@@ -553,6 +553,111 @@ class KRouterProcessorTest {
     }
 
     // ========================================================================
+    // 7. krouter.collect.annotations — 扩展收集范围
+    // ========================================================================
+
+    /**
+     * **意图**：验证通过 ksp arg `krouter.collect.annotations` 传入的自定义注解
+     * 能被正确收集并出现在生成的 KRouterInjectMap 中。
+     *
+     * **输入**：
+     * - 源文件中定义一个自定义注解 `@MyCustomAnnotation` 和一个被它标注的 class
+     * - KSP 参数传入 `krouter.collect.annotations=com.example.MyCustomAnnotation`
+     *
+     * **预期**：编译成功，生成的 inject map 中引用了该 class（在 services 或 metadata 中）。
+     *
+     * **意义**：其他库可以通过 KSP 参数扩展 KRouter 的收集范围，无需修改处理器代码。
+     */
+    @Test
+    fun `krouter collect annotations collects custom annotation`() {
+        val annotationSource =
+            SourceFile.kotlin(
+                "MyCustomAnnotation.kt",
+                """
+            package com.example
+
+            @Target(AnnotationTarget.CLASS)
+            @Retention(AnnotationRetention.BINARY)
+            annotation class MyCustomAnnotation
+            """,
+            )
+
+        val serviceSource =
+            SourceFile.kotlin(
+                "CustomService.kt",
+                """
+            package com.example
+
+            @MyCustomAnnotation
+            class CustomService
+            """,
+            )
+
+        val destSource =
+            SourceFile.kotlin(
+                "TestScreen.kt",
+                """
+            package com.test
+
+            import com.lalilu.krouter.annotation.Destination
+
+            @Destination(router = ["/test/main"])
+            data class TestScreen(val id: String)
+            """,
+            )
+
+        val result =
+            compileWithArgs(
+                mapOf("krouter.collect.annotations" to "com.example.MyCustomAnnotation"),
+                annotationSource,
+                serviceSource,
+                destSource,
+            )
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        // CustomService 通过 krouter.collect.annotations 被收集到 metadata 中
+        val metadataFiles =
+            result.sourcesGeneratedBySymbolProcessor
+                .filter { it.name.startsWith("Metadata_") }
+                .toList()
+        assertTrue("Metadata file should exist", metadataFiles.isNotEmpty())
+        val metadataContent = metadataFiles.first().readText()
+        assertTrue("CustomService should appear in metadata", metadataContent.contains("CustomService"))
+
+        // @Destination 类仍正常出现在 inject map 中
+        val injectMapContent = readGeneratedInjectMap(result)
+        assertTrue("TestScreen from @Destination should appear", injectMapContent.contains("TestScreen"))
+    }
+
+    /**
+     * **意图**：验证 `krouter.collect.annotations` 传入空字符串时不会报错。
+     *
+     * **预期**：编译成功，只收集默认的 @Destination / @KService。
+     */
+    @Test
+    fun `krouter collect annotations empty string does not break`() {
+        val source =
+            SourceFile.kotlin(
+                "SimpleScreen.kt",
+                """
+            package com.test
+
+            import com.lalilu.krouter.annotation.Destination
+
+            @Destination(router = ["/test/simple"])
+            data class SimpleScreen(val id: String)
+            """,
+            )
+
+        val result =
+            compileWithArgs(
+                mapOf("krouter.collect.annotations" to ""),
+                source,
+            )
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+    }
+
+    // ========================================================================
     // 辅助方法
     // ========================================================================
 
@@ -562,7 +667,18 @@ class KRouterProcessorTest {
      * @param sources 要编译的 Kotlin 源文件
      * @return 编译结果，包含 exitCode、messages、classLoader、generatedFiles 等
      */
-    private fun compile(vararg sources: SourceFile): JvmCompilationResult {
+    private fun compile(vararg sources: SourceFile): JvmCompilationResult = compileWithArgs(emptyMap(), *sources)
+
+    /**
+     * 运行 KSP 编译流程，支持传入额外的 KSP processor 参数。
+     *
+     * @param extraArgs 额外的 KSP processor 参数（会与 kRouterType=inject 合并）
+     * @param sources 要编译的 Kotlin 源文件
+     */
+    private fun compileWithArgs(
+        extraArgs: Map<String, String>,
+        vararg sources: SourceFile,
+    ): JvmCompilationResult {
         val compilation =
             KotlinCompilation().apply {
                 this.sources = sources.toList()
@@ -570,6 +686,7 @@ class KRouterProcessorTest {
                 configureKsp {
                     symbolProcessorProviders.add(KRouterProcessorProvider())
                     processorOptions["kRouterType"] = "inject"
+                    extraArgs.forEach { (k, v) -> processorOptions[k] = v }
                 }
                 verbose = false
             }

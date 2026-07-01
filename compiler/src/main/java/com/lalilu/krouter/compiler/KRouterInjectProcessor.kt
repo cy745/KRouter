@@ -101,11 +101,7 @@ class KRouterInjectProcessor(
         val collectedClasses =
             metadataReader.readWithFallback(
                 resolver = resolver,
-                ownAnnotations =
-                    listOf(
-                        "com.lalilu.krouter.annotation.Destination",
-                        "com.lalilu.krouter.annotation.KService",
-                    ),
+                ownAnnotations = resolveAnnotations(environment.options),
             )
 
         val (destinations, services, collectedMap) =
