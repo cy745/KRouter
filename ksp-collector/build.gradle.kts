@@ -1,3 +1,6 @@
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.KotlinJvm
+
 plugins {
     kotlin("jvm")
     alias(libs.plugins.vanniktech.publish)
@@ -16,3 +19,49 @@ dependencies {
 
 group = libs.versions.krouter.group.get()
 version = libs.versions.krouter.version.get()
+
+mavenPublishing {
+    coordinates(
+        groupId = group.toString(),
+        artifactId = "ksp-collector",
+        version = version.toString(),
+    )
+
+    configure(
+        KotlinJvm(
+            javadocJar = JavadocJar.Javadoc(),
+            sourcesJar = true,
+        ),
+    )
+
+    pom {
+        name = "KRouter ksp-collector"
+        description = "Cross-module annotation collection utility for KSP processors"
+        inceptionYear = "2024"
+        url = "https://github.com/cy745/KRouter/"
+
+        licenses {
+            license {
+                name = "The Apache License, Version 2.0"
+                url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+
+        developers {
+            developer {
+                id = "cy745"
+                name = "cy745"
+                url = "https://github.com/cy745/"
+            }
+        }
+
+        scm {
+            url = "https://github.com/cy745/KRouter/"
+            connection = "scm:git:git://github.com/cy745/KRouter.git"
+            developerConnection = "scm:git:ssh://git@github.com/cy745/KRouter.git"
+        }
+    }
+
+    if (!project.hasProperty("skipSigning")) signAllPublications()
+}
