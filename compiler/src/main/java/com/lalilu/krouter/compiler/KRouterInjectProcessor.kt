@@ -28,38 +28,33 @@ import com.squareup.kotlinpoet.ksp.writeTo
 /**
  * 路由注入处理器：收集所有模块的 @Destination / @KService，生成 KRouterInjectMap。
  *
- * ## 两轮处理时序
+ * ## 三轮处理时序
  *
  * ```
- *                             第一轮                             第二轮
- *                         ┌──────────────┐            ┌──────────────────────┐
- *  kRouterType=collect    │ super.process │            │                      │
- *  的各依赖模块           │ 生成 metadata │            │                      │
- *                         └──────┬───────┘            │                      │
- *                                │ metadata class     │                      │
- *                                ▼ 在依赖的制品中      │                      │
- *                         ┌──────────────────┐        │                      │
- *  kRouterType=inject     │ super.process()   │        │ super.process()      │
- *  的主模块               │ 生成自己的metadata │        │ 重新生成相同metadata  │
- *                         ├──────────────────┤        ├──────────────────────┤
- *                         │ @KInject actual   │        │ getDeclarationsFr…() │
- *                         │ （第一轮才可见）   │        │ 读取依赖的 metadata   │
- *                         ├──────────────────┤        ├──────────────────────┤
- *                         │ 返回 metadata 类  │        │ getSymbolsWithAnn…() │
- *                         │ → 触发第二轮      │        │ 取当前模块自己的注解  │
- *                         └──────────────────┘        ├──────────────────────┤
- *                                                     │ 合并 → 生成 InjectMap│
- *                                                     └──────────────────────┘
+ *     Round 1                Round 2               Round 3
+ * ┌──────────────┐    ┌──────────────────┐    ┌──────────────────┐
+ * │super.process │    │super.process     │    │readWithFallback  │
+ * │生成 metadata │    │再次生成 metadata │    │读取所有 metadata │
+ * │@KInject      │    │metadata 已可见   │    │+ 当前模块注解    │
+ * │actual 生成   │    │但 metadataSeen=1 │    │metadataSeen=2   │
+ * ├──────────────┤    │→ 跳过，返回      │    │→ 正式注入        │
+ * │返回 metadata │    └──────────────────┘    │生成 InjectMap   │
+ * │→ 触发 Round 2│                           └──────────────────┘
+ * └──────────────┘
  * ```
  *
- * ## 为什么需要两轮？
+ * ## 为什么需要三轮？
  *
- * 1. **跨模块 metadata 可见性**：KSP 的 getDeclarationsFromPackage() 只返回已编译
- *    或已被 KSP 索引的声明。刚生成的文件在下一轮才可索引。
- * 2. **当前模块注解**：第二轮中当前模块自己的 metadata 刚被 super.process() 生成
- *    同轮不可见，需用 getSymbolsWithAnnotation() 补充。
- * 3. **@KInject 的特殊性**：第二轮 KSP 中 expect fun 不可见（KMP 限制），所以
- *    actual 生成必须在第一轮完成。
+ * 1. **跨模块 metadata 可见性**：KSP 的 getDeclarationsFromPackage() 在第一轮
+ *    看不到同一轮生成的文件，第二轮才可见。
+ * 2. **等待其他 KSP 处理器**（如 Koin）：第二轮 metadata 可见后不立即注入，
+ *    再等一轮给其他处理器生成代码的机会。第三轮注入时，其他处理器生成的
+ *    带注解类已在 classpath 上，可被 getSymbolsWithAnnotation() 收录。
+ * 3. **当前模块注解**：第三轮中当前模块自己的 metadata 由 super.process()
+ *    刚刚生成、同轮不可见，readWithFallback() 会额外调用 getSymbolsWithAnnotation()
+ *    直接补充。
+ * 4. **@KInject 的特殊性**：第三轮 KSP 中 expect fun 不可见，actual 生成
+ *    必须在第一轮完成。
  */
 class KRouterInjectProcessor(
     environment: SymbolProcessorEnvironment,
@@ -74,8 +69,15 @@ class KRouterInjectProcessor(
             """.trimMargin()
     }
 
-    /** inject 阶段只执行一次（第二轮），避免多轮重复生成 */
+    /** inject 阶段只执行一次，避免多轮重复生成 */
     private var injectPhaseDone = false
+
+    /**
+     * metadata 可见的轮次数统计。用于实现三轮时序：
+     *   第 1 次（round 2）→ super.process() 收集，返回触发 round 3
+     *   第 2 次（round 3）→ 读取 metadata + inject
+     */
+    private var metadataSeenCount = 0
 
     /** @KInject 只在第一轮处理（第二轮 KSP 中 expect fun 不可见） */
     private var kInjectDone = false
@@ -87,64 +89,58 @@ class KRouterInjectProcessor(
     override fun process(resolver: Resolver): List<KSAnnotated> {
         if (injectPhaseDone) return emptyList()
 
-        // ── 第一轮：收集注解，生成 metadata（供依赖模块读取） ──
+        // ── 第一轮：生成 metadata，返回触发第二轮 ──
         val resultList = super.process(resolver)
 
-        // ── @KInject 只在第一轮处理（第一轮 source 可见，第二轮取不到 expect fun） ──
-        if (!kInjectDone) {
-            processKInjectFunctions(resolver)
-        }
+        // @KInject 只能在第一轮处理（expect fun 后续轮次不可见）
+        if (!kInjectDone) processKInjectFunctions(resolver)
 
-        // ── 读取跨模块 metadata + 当前模块自己的注解 ──
-        // getDeclarationsFromPackage 在 metadata 文件被 KSP 索引后才能查到。
-        // 第一轮刚生成文件时尚未索引 → 空；第二轮（Gradle KMP）→ 可读。
+        // ── 检查 metadata 是否已可索引 ──
         val collectedClasses =
             metadataReader.readWithFallback(
                 resolver = resolver,
                 ownAnnotations = resolveAnnotations(environment.options),
             )
 
-        val (destinations, services, collectedMap) =
-            when {
-                // ── metadata 已被索引（第二轮+） ──
-                collectedClasses.isNotEmpty() -> {
-                    val dests =
-                        collectedClasses.filter {
-                            it.isAnnotationPresent(Destination::class)
-                        }
-                    val svcs =
-                        collectedClasses.filter {
-                            it.isAnnotationPresent(KService::class)
-                        }
-                    Triple(dests, svcs, dests + svcs)
-                }
-
-                // ── 第一轮：metadata 已生成但尚未被 KSP 索引 ──
-                environment.codeGenerator.generatedFile.isNotEmpty() -> {
-                    return resultList
-                }
-
-                // ── 无任何注解 ──
-                else -> {
-                    writeKRouterInjectMap(
-                        environment.codeGenerator,
-                        emptyList(),
-                        emptyList(),
-                        emptyList(),
-                    )
-                    injectPhaseDone = true
-                    return emptyList()
-                }
+        if (collectedClasses.isEmpty()) {
+            // 第一轮：metadata 刚生成尚未索引 → 返回触发第二轮
+            if (environment.codeGenerator.generatedFile.isNotEmpty()) {
+                return resultList
             }
+            // 无任何注解
+            writeKRouterInjectMap(
+                environment.codeGenerator,
+                emptyList(),
+                emptyList(),
+                emptyList(),
+            )
+            injectPhaseDone = true
+            return emptyList()
+        }
 
-        // ── 生成 KRouterInjectMap ──
-        writeKRouterInjectMap(environment.codeGenerator, collectedMap, destinations, services)
+        // ── metadata 可见（第二轮+） ──
+        metadataSeenCount++
+        if (metadataSeenCount == 1) {
+            // 第二轮：让其他 KSP 处理器（Koin 等）再跑一轮，不注入
+            return resultList
+        }
 
-        // ── 打印收集报告 ──
+        // ── 第三轮+：正式注入 ──
+        val destinations = collectedClasses.filter { it.isAnnotationPresent(Destination::class) }
+        val kservices = collectedClasses.filter { it.isAnnotationPresent(KService::class) }
+        val extraServices =
+            collectedClasses.filter { clazz ->
+                !clazz.isAnnotationPresent(Destination::class) && !clazz.isAnnotationPresent(KService::class)
+            }
+        // services 最终产物包含 @KService + 自定义注解收集的类
+        val allServices = kservices + extraServices
+
+        writeKRouterInjectMap(environment.codeGenerator, collectedClasses, destinations, allServices)
+
         val extraAnnotations =
             resolveAnnotations(environment.options)
                 .filter { it !in DEFAULT_ANNOTATIONS }
-        printCollectReport(collectedMap, destinations, services, extraAnnotations)
+        printCollectReport(collectedClasses, destinations, kservices, extraServices, extraAnnotations)
 
         injectPhaseDone = true
 
@@ -182,48 +178,60 @@ class KRouterInjectProcessor(
     private fun printCollectReport(
         collectedMap: List<KSClassDeclaration>,
         destinations: List<KSClassDeclaration>,
-        services: List<KSClassDeclaration>,
+        kservices: List<KSClassDeclaration>,
+        extraServices: List<KSClassDeclaration>,
         extraAnnotations: List<String>,
     ) {
-        if (collectedMap.isEmpty() && extraAnnotations.isEmpty()) {
+        val hasData = collectedMap.isNotEmpty() || extraAnnotations.isNotEmpty()
+        if (!hasData && extraAnnotations.isEmpty()) {
             log(
                 "╔═══════════════════════════════════════\n║  📦 KRouter Collect Report\n║  ─────────────────────────────\n║  ⚠️  No annotated classes found\n╚═══════════════════════════════════════",
             )
             return
         }
 
-        val destNames = destinations.map { it.qualifiedName?.asString() }.toSet()
-        val svcNames = services.map { it.qualifiedName?.asString() }.toSet()
-
         log(
             buildString {
                 appendLine("╔═══════════════════════════════════════")
                 appendLine("║  📦 KRouter Collect Report")
                 appendLine("║  ─────────────────────────────")
+                // ── @Destination ──
                 if (destinations.isNotEmpty()) {
                     appendLine("║")
                     appendLine("║  🧭  Destinations (${destinations.size}):")
                     destinations.forEach { d ->
                         appendLine("║     • ${d.qualifiedName?.asString() ?: "?"}")
                     }
-                } else {
-                    appendLine("║")
-                    appendLine("║  🧭  Destinations:  ❌ none")
                 }
-                if (services.isNotEmpty()) {
+                // ── @KService (services 中的内置部分) ──
+                if (kservices.isNotEmpty()) {
                     appendLine("║")
-                    appendLine("║  🔧  Services (${services.size}):")
-                    services.forEach { s ->
+                    appendLine("║  🔧  @KService (${kservices.size}):")
+                    kservices.forEach { s ->
                         appendLine("║     • ${s.qualifiedName?.asString() ?: "?"}")
                     }
-                } else {
-                    appendLine("║")
-                    appendLine("║  🔧  Services:  ❌ none")
                 }
-                // ── 自定义注解收集展示 ──
+                // ── 自定义注解收集的类 → 也进入 services ──
+                if (extraServices.isNotEmpty()) {
+                    appendLine("║")
+                    appendLine("║  📦  Extra in Services (${extraServices.size}):")
+                    extraServices.forEach { c ->
+                        val annNames =
+                            c.annotations
+                                .mapNotNull {
+                                    it.annotationType
+                                        .resolve()
+                                        .declaration.qualifiedName
+                                        ?.asString()
+                                }.filter { it !in DEFAULT_ANNOTATIONS }
+                                .joinToString(", ") { it.substringAfterLast('.') }
+                        appendLine("║     • ${c.qualifiedName?.asString() ?: "?"}  [$annNames]")
+                    }
+                }
+                // ── Extra Annotations 配置详情 ──
                 if (extraAnnotations.isNotEmpty()) {
                     appendLine("║")
-                    appendLine("║  🏷️  Extra Annotations (${extraAnnotations.size}):")
+                    appendLine("║  🏷️  Extra Annotation Config:")
                     extraAnnotations.forEach { ann ->
                         val matched =
                             collectedMap.filter { clazz ->
@@ -234,14 +242,13 @@ class KRouterInjectProcessor(
                                         ?.asString() == ann
                                 }
                             }
-                        if (matched.isNotEmpty()) {
-                            appendLine("║     [${ann.substringAfterLast('.')}]  ($ann)")
-                            matched.forEach { c ->
-                                appendLine("║        • ${c.qualifiedName?.asString() ?: "?"}")
+                        val status =
+                            if (matched.isNotEmpty()) {
+                                "✅ ${matched.size} classes"
+                            } else {
+                                "❌ none"
                             }
-                        } else {
-                            appendLine("║     [${ann.substringAfterLast('.')}]  ❌ none  ($ann)")
-                        }
+                        appendLine("║     [${ann.substringAfterLast('.')}]  $status  ($ann)")
                     }
                 }
                 append("╚═══════════════════════════════════════")
